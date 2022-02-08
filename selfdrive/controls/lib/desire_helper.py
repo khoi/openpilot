@@ -5,7 +5,8 @@ from common.realtime import DT_MDL
 LaneChangeState = log.LateralPlan.LaneChangeState
 LaneChangeDirection = log.LateralPlan.LaneChangeDirection
 
-LANE_CHANGE_SPEED_MIN = 30 * CV.MPH_TO_MS
+LANE_CHANGE_SPEED_MIN = 5 * CV.MPH_TO_MS
+LANE_CHANGE_SPEED_NO_NUDGE = 30 * CV.MPH_TO_MS
 LANE_CHANGE_TIME_MAX = 10.
 
 DESIRES = {
@@ -60,7 +61,7 @@ class DesireHelper:
         self.lane_change_direction = LaneChangeDirection.left if \
           carstate.leftBlinker else LaneChangeDirection.right
 
-        torque_applied = carstate.steeringPressed and \
+        torque_applied = (v_ego > LANE_CHANGE_SPEED_NO_NUDGE) or carstate.steeringPressed and \
                          ((carstate.steeringTorque > 0 and self.lane_change_direction == LaneChangeDirection.left) or
                           (carstate.steeringTorque < 0 and self.lane_change_direction == LaneChangeDirection.right))
 
