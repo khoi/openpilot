@@ -175,6 +175,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"UpdaterCurrentReleaseNotes", CLEAR_ON_MANAGER_START},
     {"UpdaterNewDescription", CLEAR_ON_MANAGER_START},
     {"UpdaterNewReleaseNotes", CLEAR_ON_MANAGER_START},
+    {"UploadRaw", PERSISTENT},
     {"Version", PERSISTENT},
     {"VisionRadarToggle", PERSISTENT},
     {"WideCameraOnly", PERSISTENT},
