@@ -73,7 +73,12 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       "../assets/offroad/icon_road.png",
     },
 #endif
-
+    {
+      "UploadRaw",
+      "Upload Raw Logs",
+      "Upload full logs and full resolution video by default while on Wi-Fi. If not enabled, individual logs can be marked for upload at useradmin.comma.ai.",
+      "../assets/offroad/icon_network.png",
+    },
   };
 
   Params params;
