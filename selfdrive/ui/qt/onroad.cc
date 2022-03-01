@@ -305,10 +305,21 @@ void NvgWindow::updateFrameMat(int w, int h) {
 }
 
 void NvgWindow::drawLaneLines(QPainter &painter, const UIScene &scene) {
+  UIState *s = uiState();
   if (!scene.end_to_end  || true) {
     // lanelines
     for (int i = 0; i < std::size(scene.lane_line_vertices); ++i) {
-      painter.setBrush(QColor::fromRgbF(1.0, 1.0, 1.0, scene.lane_line_probs[i]));
+      if (i == 1 || i == 2) {
+        // TODO: can we just use the projected vertices somehow?
+        const cereal::ModelDataV2::XYZTData::Reader &line = (*s->sm)["modelV2"].getModelV2().getLaneLines()[i];
+        const float default_pos = 1.4;  // when lane poly isn't available
+        const float lane_pos = line.getY().size() > 0 ? std::abs(line.getY()[5]) : default_pos;  // get redder when line is closer to car
+        float hue = 332.5 * lane_pos - 332.5;  // equivalent to {1.4, 1.0}: {133, 0} (green to red)
+        hue = std::fmin(133, fmax(0, hue)) / 360.;  // clip and normalize
+        painter.setBrush(QColor::fromHslF(hue, 1.0, 0.50, scene.lane_line_probs[i]));
+      } else {
+        painter.setBrush(QColor::fromRgbF(1.0, 1.0, 1.0, scene.lane_line_probs[i]));
+      }
       painter.drawPolygon(scene.lane_line_vertices[i].v, scene.lane_line_vertices[i].cnt);
     }
     // road edges
