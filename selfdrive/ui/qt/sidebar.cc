@@ -4,7 +4,7 @@
 
 #include "selfdrive/ui/qt/util.h"
 
-void Sidebar::drawMetric(QPainter &p, const QPair<QString, QString> &label, QColor c, int y) {
+void Sidebar::drawMetric(QPainter &p, const QString &label, QColor c, int y) {
   const QRect rect = {30, y, 240, 126};
 
   p.setPen(Qt::NoPen);
@@ -22,18 +22,11 @@ void Sidebar::drawMetric(QPainter &p, const QPair<QString, QString> &label, QCol
   p.setPen(QColor(0xff, 0xff, 0xff));
   configFont(p, "Inter", 35, "SemiBold");
 
-  QRect label_rect = getTextRect(p, Qt::AlignCenter, label.first);
-  label_rect.setWidth(218);
-  label_rect.moveLeft(rect.left() + 22);
-  label_rect.moveTop(rect.top() + 19);
-  p.drawText(label_rect, Qt::AlignCenter, label.first);
-
-  label_rect.moveTop(rect.top() + 65);
-  p.drawText(label_rect, Qt::AlignCenter, label.second);
+  const QRect r = QRect(rect.x() + 30, rect.y(), rect.width() - 40, rect.height());
+  p.drawText(r, Qt::AlignCenter, label);
 }
 
 Sidebar::Sidebar(QWidget *parent) : QFrame(parent) {
-  home_img = loadPixmap("../assets/images/button_home.png", {180, 180});
   settings_img = loadPixmap("../assets/images/button_settings.png", settings_btn.size(), Qt::IgnoreAspectRatio);
 
   connect(this, &Sidebar::valueChanged, [=] { update(); });
@@ -57,35 +50,73 @@ void Sidebar::updateState(const UIState &s) {
   auto &sm = *(s.sm);
 
   auto deviceState = sm["deviceState"].getDeviceState();
+  auto peripheralState = sm["peripheralState"].getPeripheralState();
   setProperty("netType", network_type[deviceState.getNetworkType()]);
   int strength = (int)deviceState.getNetworkStrength();
   setProperty("netStrength", strength > 0 ? strength + 1 : 0);
 
-  ItemStatus connectStatus;
-  auto last_ping = deviceState.getLastAthenaPingTime();
-  if (last_ping == 0) {
-    connectStatus = ItemStatus{{tr("CONNECT"), tr("OFFLINE")}, warning_color};
-  } else {
-    connectStatus = nanos_since_boot() - last_ping < 80e9 ? ItemStatus{{tr("CONNECT"), tr("ONLINE")}, good_color} : ItemStatus{{tr("CONNECT"), tr("ERROR")}, danger_color};
-  }
-  setProperty("connectStatus", QVariant::fromValue(connectStatus));
+  auto fanSpeedPercentDesired = deviceState.getFanSpeedPercentDesired();
+  QString fanSpeedStr = QString::fromUtf8((util::string_format("FAN\n%d%%", fanSpeedPercentDesired).c_str()));
 
-  ItemStatus tempStatus = {{tr("TEMP"), tr("HIGH")}, danger_color};
+  ItemStatus fanSpeedStatus = {fanSpeedStr, good_color};
+  if (fanSpeedPercentDesired > 80) {
+    fanSpeedStatus = {fanSpeedStr, danger_color};
+  } else if (fanSpeedPercentDesired > 50) {
+    fanSpeedStatus = {fanSpeedStr, warning_color};
+  }
+  setProperty("fanSpeedStatus", QVariant::fromValue(fanSpeedStatus));
+
+  auto cpuList = deviceState.getCpuTempC();
+  float cpuTemp = 0;
+  if (cpuList.size() > 0) {
+    for(int i = 0; i < cpuList.size(); i++)
+        cpuTemp += cpuList[i];
+
+    cpuTemp /= cpuList.size();
+  }
+  QString cpuTempStr = QString::fromUtf8((util::string_format("CPU\n%.1f°", cpuTemp).c_str()));
+
+  ItemStatus cpuTempStatus = {cpuTempStr, danger_color};
   auto ts = deviceState.getThermalStatus();
   if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
-    tempStatus = {{tr("TEMP"), tr("GOOD")}, good_color};
+    cpuTempStatus = {cpuTempStr, good_color};
   } else if (ts == cereal::DeviceState::ThermalStatus::YELLOW) {
-    tempStatus = {{tr("TEMP"), tr("OK")}, warning_color};
+    cpuTempStatus = {cpuTempStr, warning_color};
   }
-  setProperty("tempStatus", QVariant::fromValue(tempStatus));
+  setProperty("cpuTempStatus", QVariant::fromValue(cpuTempStatus));
 
-  ItemStatus pandaStatus = {{tr("VEHICLE"), tr("ONLINE")}, good_color};
-  if (s.scene.pandaType == cereal::PandaState::PandaType::UNKNOWN) {
-    pandaStatus = {{tr("NO"), tr("PANDA")}, danger_color};
-  } else if (s.scene.started && !sm["liveLocationKalman"].getLiveLocationKalman().getGpsOK()) {
-    pandaStatus = {{tr("GPS"), tr("SEARCH")}, warning_color};
+  auto usageList = deviceState.getCpuUsagePercent();
+  float cpuUsageAvg = 0;
+  if (usageList.size() > 0) {
+    for(int i = 0; i < usageList.size(); i++)
+        cpuUsageAvg += usageList[i];
+
+    cpuUsageAvg /= usageList.size();
   }
-  setProperty("pandaStatus", QVariant::fromValue(pandaStatus));
+  QString cpuUsageTempStr = QString::fromUtf8((util::string_format("LOAD\n%.0f%%", cpuUsageAvg).c_str()));
+
+  ItemStatus cpuUsageStatus = {cpuUsageTempStr, good_color};
+  if (cpuUsageAvg > 90) {
+    cpuUsageStatus = {cpuUsageTempStr, danger_color};
+  } else if (cpuUsageAvg > 80) {
+    cpuUsageStatus = {cpuUsageTempStr, warning_color};
+  }
+  setProperty("cpuUsageStatus", QVariant::fromValue(cpuUsageStatus));
+
+
+
+  float powerDrawW = deviceState.getPowerDrawW();
+  uint32_t voltage = peripheralState.getVoltage();
+  float voltage_f = voltage / 1000.0f;
+
+  QString powerDrawWStr = QString::fromUtf8((util::string_format("%.1fV\n%.1fW", voltage_f, powerDrawW).c_str()));
+  ItemStatus powerDrawStatus = {powerDrawWStr, danger_color};
+  if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
+    powerDrawStatus = {powerDrawWStr, good_color};
+  } else if (ts == cereal::DeviceState::ThermalStatus::YELLOW) {
+    powerDrawStatus = {powerDrawWStr, warning_color};
+  }
+  setProperty("powerDrawStatus", QVariant::fromValue(powerDrawStatus));
 }
 
 void Sidebar::paintEvent(QPaintEvent *event) {
@@ -98,9 +129,8 @@ void Sidebar::paintEvent(QPaintEvent *event) {
   // static imgs
   p.setOpacity(0.65);
   p.drawPixmap(settings_btn.x(), settings_btn.y(), settings_img);
-  p.setOpacity(1.0);
-  p.drawPixmap(60, 1080 - 180 - 40, home_img);
 
+  p.setOpacity(1);
   // network
   int x = 58;
   const QColor gray(0x54, 0x54, 0x54);
@@ -116,7 +146,8 @@ void Sidebar::paintEvent(QPaintEvent *event) {
   p.drawText(r, Qt::AlignCenter, net_type);
 
   // metrics
-  drawMetric(p, temp_status.first, temp_status.second, 338);
-  drawMetric(p, panda_status.first, panda_status.second, 496);
-  drawMetric(p, connect_status.first, connect_status.second, 654);
+  drawMetric(p, power_draw_status.first, power_draw_status.second, 338);
+  drawMetric(p, cpu_temp_status.first, cpu_temp_status.second, 496);
+  drawMetric(p, cpu_usage_status.first, cpu_usage_status.second, 654);
+  drawMetric(p, fan_speed_status.first, fan_speed_status.second, 812);
 }
