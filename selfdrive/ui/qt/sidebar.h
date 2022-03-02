@@ -11,9 +11,10 @@ Q_DECLARE_METATYPE(ItemStatus);
 
 class Sidebar : public QFrame {
   Q_OBJECT
-  Q_PROPERTY(ItemStatus connectStatus MEMBER connect_status NOTIFY valueChanged);
-  Q_PROPERTY(ItemStatus pandaStatus MEMBER panda_status NOTIFY valueChanged);
-  Q_PROPERTY(ItemStatus tempStatus MEMBER temp_status NOTIFY valueChanged);
+  Q_PROPERTY(ItemStatus fanSpeedStatus MEMBER fan_speed_status NOTIFY valueChanged);
+  Q_PROPERTY(ItemStatus cpuUsageStatus MEMBER cpu_usage_status NOTIFY valueChanged);
+  Q_PROPERTY(ItemStatus cpuTempStatus MEMBER cpu_temp_status NOTIFY valueChanged);
+  Q_PROPERTY(ItemStatus ambientTempStatus MEMBER ambient_temp_status NOTIFY valueChanged);
   Q_PROPERTY(QString netType MEMBER net_type NOTIFY valueChanged);
   Q_PROPERTY(int netStrength MEMBER net_strength NOTIFY valueChanged);
 
@@ -49,7 +50,7 @@ protected:
   const QColor danger_color = QColor(201, 34, 49);
 
   Params params;
-  ItemStatus connect_status, panda_status, temp_status;
+  ItemStatus fan_speed_status, cpu_usage_status, cpu_temp_status, ambient_temp_status;
   QString net_type;
   int net_strength = 0;
 };
