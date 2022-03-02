@@ -54,31 +54,63 @@ void Sidebar::updateState(const UIState &s) {
   int strength = (int)deviceState.getNetworkStrength();
   setProperty("netStrength", strength > 0 ? strength + 1 : 0);
 
-  ItemStatus connectStatus;
-  auto last_ping = deviceState.getLastAthenaPingTime();
-  if (last_ping == 0) {
-    connectStatus = params.getBool("PrimeRedirected") ? ItemStatus{"NO\nPRIME", danger_color} : ItemStatus{"CONNECT\nOFFLINE", warning_color};
-  } else {
-    connectStatus = nanos_since_boot() - last_ping < 80e9 ? ItemStatus{"CONNECT\nONLINE", good_color} : ItemStatus{"CONNECT\nERROR", danger_color};
-  }
-  setProperty("connectStatus", QVariant::fromValue(connectStatus));
+  auto fanSpeedPercentDesired = deviceState.getFanSpeedPercentDesired();
+  QString fanSpeedStr = QString::fromUtf8((util::string_format("FAN\n%d%%", fanSpeedPercentDesired).c_str()));
 
-  ItemStatus tempStatus = {"TEMP\nHIGH", danger_color};
+  ItemStatus fanSpeedStatus = {fanSpeedStr, good_color};
+  if (fanSpeedPercentDesired > 80) {
+    fanSpeedStatus = {fanSpeedStr, danger_color};
+  } else if (fanSpeedPercentDesired > 50) {
+    fanSpeedStatus = {fanSpeedStr, warning_color};
+  }
+  setProperty("fanSpeedStatus", QVariant::fromValue(fanSpeedStatus));
+
+  auto cpuList = deviceState.getCpuTempC();
+  float cpuTemp = 0;
+  if (cpuList.size() > 0) {
+    for(int i = 0; i < cpuList.size(); i++)
+        cpuTemp += cpuList[i];
+
+    cpuTemp /= cpuList.size();
+  }
+  QString cpuTempStr = QString::fromUtf8((util::string_format("CPU\n%.1f°", cpuTemp).c_str()));
+
+  ItemStatus cpuTempStatus = {cpuTempStr, danger_color};
   auto ts = deviceState.getThermalStatus();
   if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
-    tempStatus = {"TEMP\nGOOD", good_color};
+    cpuTempStatus = {cpuTempStr, good_color};
   } else if (ts == cereal::DeviceState::ThermalStatus::YELLOW) {
-    tempStatus = {"TEMP\nOK", warning_color};
+    cpuTempStatus = {cpuTempStr, warning_color};
   }
-  setProperty("tempStatus", QVariant::fromValue(tempStatus));
+  setProperty("cpuTempStatus", QVariant::fromValue(cpuTempStatus));
 
-  ItemStatus pandaStatus = {"VEHICLE\nONLINE", good_color};
-  if (s.scene.pandaType == cereal::PandaState::PandaType::UNKNOWN) {
-    pandaStatus = {"NO\nPANDA", danger_color};
-  } else if (s.scene.started && !sm["liveLocationKalman"].getLiveLocationKalman().getGpsOK()) {
-    pandaStatus = {"GPS\nSEARCH", warning_color};
+  auto usageList = deviceState.getCpuUsagePercent();
+  float cpuUsageAvg = 0;
+  if (usageList.size() > 0) {
+    for(int i = 0; i < usageList.size(); i++)
+        cpuUsageAvg += usageList[i];
+
+    cpuUsageAvg /= usageList.size();
   }
-  setProperty("pandaStatus", QVariant::fromValue(pandaStatus));
+  QString cpuUsageTempStr = QString::fromUtf8((util::string_format("LOAD\n%.0f%%", cpuUsageAvg).c_str()));
+
+  ItemStatus cpuUsageStatus = {cpuUsageTempStr, good_color};
+  if (cpuUsageAvg > 90) {
+    cpuUsageStatus = {cpuUsageTempStr, danger_color};
+  } else if (cpuUsageAvg > 80) {
+    cpuUsageStatus = {cpuUsageTempStr, warning_color};
+  }
+  setProperty("cpuUsageStatus", QVariant::fromValue(cpuUsageStatus));
+
+  float ambientTempC = deviceState.getAmbientTempC();
+  QString ambientTempStr = QString::fromUtf8((util::string_format("AM\n%.1f°", ambientTempC).c_str()));
+  ItemStatus ambientTempStatus = {ambientTempStr, danger_color};
+  if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
+    ambientTempStatus = {ambientTempStr, good_color};
+  } else if (ts == cereal::DeviceState::ThermalStatus::YELLOW) {
+    ambientTempStatus = {ambientTempStr, warning_color};
+  }
+  setProperty("ambientTempStatus", QVariant::fromValue(ambientTempStatus));
 }
 
 void Sidebar::paintEvent(QPaintEvent *event) {
@@ -109,7 +141,8 @@ void Sidebar::paintEvent(QPaintEvent *event) {
   p.drawText(r, Qt::AlignCenter, net_type);
 
   // metrics
-  drawMetric(p, temp_status.first, temp_status.second, 338);
-  drawMetric(p, panda_status.first, panda_status.second, 496);
-  drawMetric(p, connect_status.first, connect_status.second, 654);
+  drawMetric(p, ambient_temp_status.first, ambient_temp_status.second, 338);
+  drawMetric(p, cpu_temp_status.first, cpu_temp_status.second, 496);
+  drawMetric(p, cpu_usage_status.first, cpu_usage_status.second, 654);
+  drawMetric(p, fan_speed_status.first, fan_speed_status.second, 812);
 }
