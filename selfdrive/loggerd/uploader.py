@@ -24,7 +24,7 @@ UPLOAD_ATTR_NAME = 'user.upload'
 UPLOAD_ATTR_VALUE = b'1'
 
 allow_sleep = bool(os.getenv("UPLOADER_SLEEP", "1"))
-force_wifi = os.getenv("FORCEWIFI") is not None
+force_wifi = True
 fake_upload = os.getenv("FAKEUPLOAD") is not None
 
 
