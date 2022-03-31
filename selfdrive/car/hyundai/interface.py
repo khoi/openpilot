@@ -54,10 +54,13 @@ class CarInterface(CarInterfaceBase):
       # Values from optimizer
       ret.steerRatio = 15.248  # 13.8 is spec end-to-end
       tire_stiffness_factor = 0.82
-      ret.lateralTuning.init('pid')
-      ret.lateralTuning.pid.kf = 0.00006
-      ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0.], [0.]]
-      ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.16], [0.01]]
+      ret.lateralTuning.init('torque')
+      ret.lateralTuning.torque.useSteeringAngle = True
+      MAX_TORQUE = 2.0
+      ret.lateralTuning.torque.kp = 3.0 / MAX_TORQUE
+      ret.lateralTuning.torque.ki = 0.0 / MAX_TORQUE
+      ret.lateralTuning.torque.kd = 0.5 / MAX_TORQUE
+      ret.lateralTuning.torque.kf = 0.75 / MAX_TORQUE
     elif candidate in (CAR.SONATA, CAR.SONATA_HYBRID):
       ret.lateralTuning.pid.kf = 0.00005
       ret.mass = 1513. + STD_CARGO_KG
