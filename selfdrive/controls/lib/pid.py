@@ -16,7 +16,7 @@ class PIController():
   def __init__(self, k_p, k_i, k_f=0., k_d=0., pos_limit=None, neg_limit=None, rate=100):
     self._k_p = k_p  # proportional gain
     self._k_i = k_i  # integral gain
-    self._k_d = k_d # feedforward gain
+    self._k_d = k_d   # feedforward gain
     self.k_f = k_f   # feedforward gain
     if isinstance(self._k_p, Number):
       self._k_p = [[0], [self._k_p]]
