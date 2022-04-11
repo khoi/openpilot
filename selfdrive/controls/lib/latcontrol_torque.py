@@ -45,8 +45,9 @@ class LatControlTorque(LatControl):
       error = setpoint - measurement
       pid_log.error = error
 
+      ff = desired_lateral_accel - params.roll * 9.81
       output_torque = self.pid.update(setpoint, measurement,
-                                      override=CS.steeringPressed, feedforward=desired_lateral_accel,
+                                      override=CS.steeringPressed, feedforward=ff,
                                       speed=CS.vEgo)
 
       friction_compensation = interp(desired_lateral_jerk, [-JERK_THRESHOLD, JERK_THRESHOLD], [-self.friction, self.friction])
