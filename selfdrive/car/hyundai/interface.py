@@ -59,8 +59,8 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.init('torque')
       ret.lateralTuning.torque.useSteeringAngle = True
       ret.lateralTuning.torque.kp = 2.5 / MAX_TORQUE
-      ret.lateralTuning.torque.kf = 0.75 / MAX_TORQUE
-      ret.lateralTuning.torque.friction = 0.06
+      ret.lateralTuning.torque.kf = 0.3 / MAX_TORQUE
+      ret.lateralTuning.torque.friction = 0.08
     elif candidate in (CAR.SONATA, CAR.SONATA_HYBRID):
       ret.lateralTuning.pid.kf = 0.00005
       ret.mass = 1513. + STD_CARGO_KG
