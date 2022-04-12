@@ -93,7 +93,7 @@ class TiciFanController(BaseFanController):
       self.controller.reset()
 
     fan_pwr_out = -int(self.controller.update(
-                      setpoint=75,
+                      setpoint=70,
                       measurement=max_cpu_temp,
                       feedforward=interp(max_cpu_temp, [60.0, 100.0], [0, -80])
                     ))
