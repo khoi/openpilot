@@ -199,6 +199,9 @@ void OnroadHud::updateState(const UIState &s) {
   if (sm.frame % (UI_FREQ / 2) == 0) {
     setProperty("engageable", cs.getEngageable() || cs.getEnabled());
     setProperty("dmActive", sm["driverMonitoringState"].getDriverMonitoringState().getIsActiveMode());
+
+    const auto lmd = sm["liveMapData"].getLiveMapData();
+    setProperty("roadName", QString::fromStdString(lmd.getCurrentRoadName()));
   }
 }
 
@@ -246,6 +249,15 @@ void OnroadHud::paintEvent(QPaintEvent *event) {
     drawIcon(p, radius / 2 + (bdr_s * 2), rect().bottom() - footer_h / 2,
              dm_img, QColor(0, 0, 0, 70), dmActive ? 1.0 : 0.2);
   }
+
+  if (!roadName.isEmpty()) {
+    const int h = 60;
+    QRect bar_rc(rect().left(), rect().bottom() - h, rect().width(), h);
+    p.setBrush(QColor(0, 0, 0, 100));
+    p.drawRect(bar_rc);
+    configFont(p, "Open Sans", 38, "Bold");
+    drawCenteredText(p, bar_rc.center().x(), bar_rc.center().y(), roadName, QColor(255, 255, 255, 200));
+  }
 }
 
 void OnroadHud::drawText(QPainter &p, int x, int y, const QString &text, int alpha) {
@@ -256,6 +268,16 @@ void OnroadHud::drawText(QPainter &p, int x, int y, const QString &text, int alp
 
   p.setPen(QColor(0xff, 0xff, 0xff, alpha));
   p.drawText(real_rect.x(), real_rect.bottom(), text);
+}
+
+void OnroadHud::drawCenteredText(QPainter &p, int x, int y, const QString &text, QColor color) {
+  QFontMetrics fm(p.font());
+  QRect init_rect = fm.boundingRect(text);
+  QRect real_rect = fm.boundingRect(init_rect, 0, text);
+  real_rect.moveCenter({x, y});
+
+  p.setPen(color);
+  p.drawText(real_rect, Qt::AlignCenter, text);
 }
 
 void OnroadHud::drawIcon(QPainter &p, int x, int y, QPixmap &img, QBrush bg, float opacity) {
