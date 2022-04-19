@@ -20,6 +20,12 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
 
   nvg = new NvgWindow(VISION_STREAM_ROAD, this);
 
+  buttons = new ButtonsWindow(this);
+  QObject::connect(nvg, &NvgWindow::resizeSignal, [=](int w){
+    buttons->setFixedWidth(w);
+  });
+  stacked_layout->addWidget(buttons);
+
   QWidget * split_wrapper = new QWidget;
   split = new QHBoxLayout(split_wrapper);
   split->setContentsMargins(0, 0, 0, 0);
@@ -101,6 +107,47 @@ void OnroadWindow::paintEvent(QPaintEvent *event) {
 }
 
 // ***** onroad widgets *****
+
+// ButtonsWindow
+ButtonsWindow::ButtonsWindow(QWidget *parent) : QWidget(parent) {
+  QVBoxLayout *main_layout  = new QVBoxLayout(this);
+
+  QWidget *btns_wrapper = new QWidget;
+  QHBoxLayout *btns_layout  = new QHBoxLayout(btns_wrapper);
+  btns_layout->setSpacing(0);
+  btns_layout->setContentsMargins(30, 0, 30, 30);
+
+  main_layout->addWidget(btns_wrapper, 0, Qt::AlignBottom);
+
+  // Laneless Button
+  lanelessToggleButton = new QPushButton("Init");
+  QObject::connect(lanelessToggleButton, &QPushButton::clicked, [=]() {
+    auto newValue = !Params().getBool("EndToEndToggle");
+    Params().putBool("EndToEndToggle", newValue);
+    uiState()->scene.end_to_end = newValue;
+  });
+  lanelessToggleButton->setFixedWidth(200);
+  lanelessToggleButton->setFixedHeight(200);
+  lanelessToggleButton->setText("Lane");
+  lanelessToggleButton->setStyleSheet(QString("font-size: 45px; border-radius: 25px; border-color: white"));
+
+  btns_layout->addWidget(lanelessToggleButton, 0, Qt::AlignLeft);
+
+  setStyleSheet(R"(
+    QPushButton {
+      color: white;
+      text-align: center;
+      padding: 0px;
+      border-width: 12px;
+      border-style: solid;
+      background-color: rgba(75, 75, 75, 0.3);
+    }
+  )");
+}
+
+void ButtonsWindow::updateState(const UIState &s) {
+  // becareful with this funciton, it may hogs up the CPU if u call setText for example
+}
 
 // OnroadAlerts
 void OnroadAlerts::updateAlert(const Alert &a, const QColor &color) {
@@ -205,30 +252,13 @@ void NvgWindow::drawHud(QPainter &p) {
   bg.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0));
   p.fillRect(0, 0, width(), header_h, bg);
 
-  // max speed
-  QRect rc(bdr_s * 2, bdr_s * 1.5, 184, 202);
-  p.setPen(QPen(QColor(0xff, 0xff, 0xff, 100), 10));
-  p.setBrush(QColor(0, 0, 0, 100));
-  p.drawRoundedRect(rc, 20, 20);
-  p.setPen(Qt::NoPen);
-
-  configFont(p, "Open Sans", 48, "Regular");
-  drawText(p, rc.center().x(), 118, "MAX", is_cruise_set ? 200 : 100);
-  if (is_cruise_set) {
-    configFont(p, "Open Sans", 88, "Bold");
-    drawText(p, rc.center().x(), 212, maxSpeed, 255);
-  } else {
-    configFont(p, "Open Sans", 80, "SemiBold");
-    drawText(p, rc.center().x(), 212, maxSpeed, 100);
-  }
-
   // current speed
   configFont(p, "Open Sans", 176, "Bold");
   drawText(p, rect().center().x(), 210, speed);
   configFont(p, "Open Sans", 66, "Regular");
   drawText(p, rect().center().x(), 290, speedUnit, 200);
 
-  p.restore()
+  p.restore();
 }
 
 void NvgWindow::drawText(QPainter &p, int x, int y, const QString &text, int alpha) {
@@ -371,6 +401,12 @@ void NvgWindow::drawLead(QPainter &painter, const cereal::ModelDataV2::LeadDataV
 }
 
 void NvgWindow::paintGL() {
+  const int _width = width();  // for ButtonsWindow
+  if (prev_width != _width) {
+    emit resizeSignal(_width);
+    prev_width = _width;
+  } 
+
   UIState *s = uiState();
   const cereal::ModelDataV2::Reader &model = (*s->sm)["modelV2"].getModelV2();
   CameraViewWidget::setFrameId(model.getFrameId());

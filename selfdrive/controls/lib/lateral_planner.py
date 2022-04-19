@@ -1,4 +1,5 @@
 import numpy as np
+from common.params import Params
 from common.realtime import sec_since_boot, DT_MDL
 from common.numpy_fast import interp
 from selfdrive.swaglog import cloudlog
@@ -26,6 +27,8 @@ class LateralPlanner:
     self.t_idxs = np.arange(TRAJECTORY_SIZE)
     self.y_pts = np.zeros(TRAJECTORY_SIZE)
 
+    self.second = 0.0
+
     self.lat_mpc = LateralMpc()
     self.reset_mpc(np.zeros(4))
 
@@ -34,6 +37,11 @@ class LateralPlanner:
     self.lat_mpc.reset(x0=self.x0)
 
   def update(self, sm):
+    self.second += DT_MDL
+    if self.second > 1.0:
+      self.use_lanelines = not Params().get_bool("EndToEndToggle")
+      self.second = 0.0
+
     v_ego = sm['carState'].vEgo
     measured_curvature = sm['controlsState'].curvature
 
