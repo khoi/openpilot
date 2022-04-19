@@ -25,6 +25,12 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
   hud = new OnroadHud(this);
   road_view_layout->addWidget(hud);
 
+  buttons = new ButtonsWindow(this);
+  QObject::connect(nvg, &NvgWindow::resizeSignal, [=](int w){
+    buttons->setFixedWidth(w);
+  });
+  stacked_layout->addWidget(buttons);
+
   QWidget * split_wrapper = new QWidget;
   split = new QHBoxLayout(split_wrapper);
   split->setContentsMargins(0, 0, 0, 0);
@@ -106,6 +112,48 @@ void OnroadWindow::paintEvent(QPaintEvent *event) {
 }
 
 // ***** onroad widgets *****
+
+
+// ButtonsWindow
+ButtonsWindow::ButtonsWindow(QWidget *parent) : QWidget(parent) {
+  QVBoxLayout *main_layout  = new QVBoxLayout(this);
+
+  QWidget *btns_wrapper = new QWidget;
+  QHBoxLayout *btns_layout  = new QHBoxLayout(btns_wrapper);
+  btns_layout->setSpacing(0);
+  btns_layout->setContentsMargins(30, 0, 30, 30);
+
+  main_layout->addWidget(btns_wrapper, 0, Qt::AlignBottom);
+
+  // Laneless Button
+  lanelessToggleButton = new QPushButton("Init");
+  QObject::connect(lanelessToggleButton, &QPushButton::clicked, [=]() {
+    auto newValue = !Params().getBool("EndToEndToggle");
+    Params().putBool("EndToEndToggle", newValue);
+    uiState()->scene.end_to_end = newValue;
+  });
+  lanelessToggleButton->setFixedWidth(200);
+  lanelessToggleButton->setFixedHeight(200);
+  lanelessToggleButton->setText("Lane");
+  lanelessToggleButton->setStyleSheet(QString("font-size: 45px; border-radius: 25px; border-color: white"));
+
+  btns_layout->addWidget(lanelessToggleButton, 0, Qt::AlignLeft);
+
+  setStyleSheet(R"(
+    QPushButton {
+      color: white;
+      text-align: center;
+      padding: 0px;
+      border-width: 12px;
+      border-style: solid;
+      background-color: rgba(75, 75, 75, 0.3);
+    }
+  )");
+}
+
+void ButtonsWindow::updateState(const UIState &s) {
+  // becareful with this funciton, it may hogs up the CPU if u call setText for example
+}
 
 // OnroadAlerts
 void OnroadAlerts::updateAlert(const Alert &a, const QColor &color) {
@@ -373,6 +421,12 @@ void NvgWindow::drawLead(QPainter &painter, const cereal::ModelDataV2::LeadDataV
 }
 
 void NvgWindow::paintGL() {
+  const int _width = width();  // for ButtonsWindow
+  if (prev_width != _width) {
+    emit resizeSignal(_width);
+    prev_width = _width;
+  } 
+
   CameraViewWidget::paintGL();
 
   UIState *s = uiState();
