@@ -43,6 +43,7 @@ def manager_init() -> None:
     ("OpenpilotEnabledToggle", "1"),
     ("IsMetric", "1"),
     ("UploadRaw", "1"),
+    ("GithubUsername", "khoi"),
   ]
   if not PC:
     default_params.append(("LastUpdateTime", datetime.datetime.utcnow().isoformat().encode('utf8')))
