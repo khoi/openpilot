@@ -2,13 +2,24 @@
 
 #include <QStackedLayout>
 #include <QWidget>
+#include <QPushButton>
 
 #include "selfdrive/common/util.h"
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 #include "selfdrive/ui/ui.h"
 
+class ButtonsWindow : public QWidget {
+  Q_OBJECT
 
-// ***** onroad widgets *****
+public:
+  ButtonsWindow(QWidget* parent = 0);
+
+private:
+  QPushButton *lanelessToggleButton;
+
+public slots:
+  void updateState(const UIState &s);
+};
 class OnroadAlerts : public QWidget {
   Q_OBJECT
 
@@ -39,6 +50,7 @@ class NvgWindow : public CameraViewWidget {
 public:
   explicit NvgWindow(VisionStreamType type, QWidget* parent = 0);
   void updateState(const UIState &s);
+  int prev_width = -1;  // initializes ButtonsWindow width and holds prev width to update it
 
 private:
   void drawIcon(QPainter &p, int x, int y, QPixmap &img, QBrush bg, float opacity);
@@ -70,6 +82,9 @@ protected:
 
   double prev_draw_t = 0;
   FirstOrderFilter fps_filter;
+
+signals:
+  void resizeSignal(int w);
 };
 
 // container for all onroad widgets
@@ -85,6 +100,7 @@ private:
   void mousePressEvent(QMouseEvent* e) override;
   OnroadAlerts *alerts;
   NvgWindow *nvg;
+  ButtonsWindow *buttons;
   QColor bg = bg_colors[STATUS_DISENGAGED];
   QWidget *map = nullptr;
   QHBoxLayout* split;
