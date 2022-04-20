@@ -346,7 +346,7 @@ def uploadFilesToUrls(files_data):
       headers=file.get('headers', {}),
       created_at=int(time.time() * 1000),
       id=None,
-      allow_cellular=file.get('allow_cellular', False),
+      allow_cellular=True,
     )
     upload_id = hashlib.sha1(str(item).encode()).hexdigest()
     item = item._replace(id=upload_id)
