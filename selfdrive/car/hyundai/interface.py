@@ -51,14 +51,21 @@ class CarInterface(CarInterfaceBase):
     ret.longitudinalActuatorDelayUpperBound = 1.0 # s
 
     if candidate in (CAR.SANTA_FE, CAR.SANTA_FE_2022, CAR.SANTA_FE_HEV_2022, CAR.SANTA_FE_PHEV_2022):
-      ret.lateralTuning.pid.kf = 0.00005
       ret.mass = 3982. * CV.LB_TO_KG + STD_CARGO_KG
       ret.wheelbase = 2.766
       # Values from optimizer
       ret.steerRatio = 16.55  # 13.8 is spec end-to-end
       tire_stiffness_factor = 0.82
-      ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[9., 22.], [9., 22.]]
-      ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.2, 0.35], [0.05, 0.09]]
+
+      MAX_TORQUE = 2.5
+      FRICTION = 0.06
+
+      ret.lateralTuning.init('torque')
+      ret.lateralTuning.torque.useSteeringAngle = True
+      ret.lateralTuning.torque.kp = 2.0 / MAX_TORQUE
+      ret.lateralTuning.torque.kf = 0.1 / MAX_TORQUE
+      ret.lateralTuning.torque.ki = 0.5 / MAX_TORQUE
+      ret.lateralTuning.torque.friction = FRICTION
     elif candidate in (CAR.SONATA, CAR.SONATA_HYBRID):
       ret.lateralTuning.pid.kf = 0.00005
       ret.mass = 1513. + STD_CARGO_KG
