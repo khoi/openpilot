@@ -102,7 +102,7 @@ void Sidebar::updateState(const UIState &s) {
   setProperty("cpuUsageStatus", QVariant::fromValue(cpuUsageStatus));
 
   float powerDrawW = deviceState.getPowerDrawW();
-  QString powerDrawWStr = QString::fromUtf8((util::string_format("Watt\n%.1f°", powerDrawW).c_str()));
+  QString powerDrawWStr = QString::fromUtf8((util::string_format("POW\n%.1fW", powerDrawW).c_str()));
   ItemStatus powerDrawStatus = {powerDrawWStr, danger_color};
   if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
     powerDrawStatus = {powerDrawWStr, good_color};
