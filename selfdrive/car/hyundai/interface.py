@@ -57,8 +57,8 @@ class CarInterface(CarInterfaceBase):
       ret.steerRatio = 16.55  # 13.8 is spec end-to-end
       tire_stiffness_factor = 0.82
 
-      MAX_TORQUE = 2.5
-      FRICTION = 0.06
+      MAX_TORQUE = 3.5
+      FRICTION = 0.01
 
       ret.lateralTuning.init('torque')
       ret.lateralTuning.torque.useSteeringAngle = True
