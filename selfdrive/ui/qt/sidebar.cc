@@ -101,15 +101,15 @@ void Sidebar::updateState(const UIState &s) {
   }
   setProperty("cpuUsageStatus", QVariant::fromValue(cpuUsageStatus));
 
-  float nvmeTempC = deviceState.getNvmeTempC()[0];
-  QString ambientTempStr = QString::fromUtf8((util::string_format("AM\n%.1f°", nvmeTempC).c_str()));
-  ItemStatus nvmeTempStatus = {ambientTempStr, danger_color};
+  float ambientTempC = deviceState.getAmbientTempC();
+  QString ambientTempStr = QString::fromUtf8((util::string_format("AM\n%.1f°", ambientTempC).c_str()));
+  ItemStatus ambientTempStatus = {ambientTempStr, danger_color};
   if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
-    nvmeTempStatus = {ambientTempStr, good_color};
+    ambientTempStatus = {ambientTempStr, good_color};
   } else if (ts == cereal::DeviceState::ThermalStatus::YELLOW) {
-    nvmeTempStatus = {ambientTempStr, warning_color};
+    ambientTempStatus = {ambientTempStr, warning_color};
   }
-  setProperty("nvmeTempStatus", QVariant::fromValue(nvmeTempStatus));
+  setProperty("ambientTempStatus", QVariant::fromValue(ambientTempStatus));
 }
 
 void Sidebar::paintEvent(QPaintEvent *event) {
@@ -139,7 +139,7 @@ void Sidebar::paintEvent(QPaintEvent *event) {
   p.drawText(r, Qt::AlignCenter, net_type);
 
   // metrics
-  drawMetric(p, nvme_temp_status.first, nvme_temp_status.second, 338);
+  drawMetric(p, ambient_temp_status.first, ambient_temp_status.second, 338);
   drawMetric(p, cpu_temp_status.first, cpu_temp_status.second, 496);
   drawMetric(p, cpu_usage_status.first, cpu_usage_status.second, 654);
   drawMetric(p, fan_speed_status.first, fan_speed_status.second, 812);
