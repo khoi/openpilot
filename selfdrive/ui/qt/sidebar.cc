@@ -101,15 +101,15 @@ void Sidebar::updateState(const UIState &s) {
   }
   setProperty("cpuUsageStatus", QVariant::fromValue(cpuUsageStatus));
 
-  float ambientTempC = deviceState.getAmbientTempC();
-  QString ambientTempStr = QString::fromUtf8((util::string_format("AM\n%.1f°", ambientTempC).c_str()));
-  ItemStatus ambientTempStatus = {ambientTempStr, danger_color};
+  float powerDrawW = deviceState.getPowerDrawW();
+  QString powerDrawWStr = QString::fromUtf8((util::string_format("POW\n%.1fW", powerDrawW).c_str()));
+  ItemStatus powerDrawStatus = {powerDrawWStr, danger_color};
   if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
-    ambientTempStatus = {ambientTempStr, good_color};
+    powerDrawStatus = {powerDrawWStr, good_color};
   } else if (ts == cereal::DeviceState::ThermalStatus::YELLOW) {
-    ambientTempStatus = {ambientTempStr, warning_color};
+    powerDrawStatus = {powerDrawWStr, warning_color};
   }
-  setProperty("ambientTempStatus", QVariant::fromValue(ambientTempStatus));
+  setProperty("powerDrawStatus", QVariant::fromValue(powerDrawStatus));
 }
 
 void Sidebar::paintEvent(QPaintEvent *event) {
@@ -139,7 +139,7 @@ void Sidebar::paintEvent(QPaintEvent *event) {
   p.drawText(r, Qt::AlignCenter, net_type);
 
   // metrics
-  drawMetric(p, ambient_temp_status.first, ambient_temp_status.second, 338);
+  drawMetric(p, power_draw_status.first, power_draw_status.second, 338);
   drawMetric(p, cpu_temp_status.first, cpu_temp_status.second, 496);
   drawMetric(p, cpu_usage_status.first, cpu_usage_status.second, 654);
   drawMetric(p, fan_speed_status.first, fan_speed_status.second, 812);
