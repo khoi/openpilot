@@ -23,7 +23,6 @@ from opendbc.can.parser import CANParser
 MAX_TIME_ONROAD = 5 * 60.  # after this is reached, car stops recording, disregarding movement
 MOVEMENT_TIME = 60.  # each movement resets onroad timer to this
 MIN_TIME_ONROAD = MOVEMENT_TIME + 5.
-INACTIVE_TIME = 2. * 60.  # car needs to be inactive for this time before sentry mode is enabled
 
 DEBUG = False
 class SentryMode:
@@ -75,9 +74,6 @@ class SentryMode:
 
     self.update_sentry_tripped(now_ts)
 
-  def is_sentry_armed(self):
-    return self.sentry_enabled
-
   def update_sentry_tripped(self, now_ts):
     movement = any([abs(a_filter.x) > .01 for a_filter in self.accel_filters])
     if movement:
@@ -89,7 +85,7 @@ class SentryMode:
     tripped_long_enough |= now_ts - self.sentry_tripped_ts > MAX_TIME_ONROAD  # maximum of
 
     sentry_tripped = False
-    self.sentry_armed = self.is_sentry_armed(now_ts)
+    self.sentry_armed = self.sentry_enabled
     self.sprint(f"{now_ts - self.sentry_tripped_ts=} > {MIN_TIME_ONROAD=}")
     if self.sentry_armed:
       if movement:  # trip if armed and there's movement
