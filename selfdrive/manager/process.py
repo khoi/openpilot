@@ -227,7 +227,7 @@ class PythonProcess(ManagerProcess):
     self.unkillable = unkillable
     self.sigkill = sigkill
     self.watchdog_max_dt = watchdog_max_dt
-    sellf.sentry = sentry
+    self.sentry = sentry
 
   def prepare(self) -> None:
     if self.enabled:
