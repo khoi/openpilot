@@ -160,7 +160,7 @@ def hw_state_thread(end_event, hw_queue):
 
 def thermald_thread(end_event, hw_queue):
   pm = messaging.PubMaster(['deviceState'])
-  sm = messaging.SubMaster(["peripheralState", "gpsLocationExternal", "controlsState", "pandaStates"], poll=["pandaStates"])
+  sm = messaging.SubMaster(["peripheralState", "gpsLocationExternal", "controlsState", "pandaStates", "sentryState"], poll=["pandaStates"])
 
   count = 0
 
@@ -304,7 +304,7 @@ def thermald_thread(end_event, hw_queue):
             pass
 
     # Handle offroad/onroad transition
-    should_start = all(onroad_conditions.values())
+    should_start = all(onroad_conditions.values()) or sm["sentryState"].started
     if started_ts is None:
       should_start = should_start and all(startup_conditions.values())
 

@@ -5,31 +5,38 @@ from collections import defaultdict
 
 import cereal.messaging as messaging
 from common.realtime import sec_since_boot
+from opendbc.can.parser import CANParser
+
+
+signals = [
+  ("CF_Gway_DrvKeyLockSw", "CGW1", 0),
+  ("CF_Gway_DrvKeyUnlockSw", "CGW1", 1),  # 1 is unlocked
+  ("CF_Gway_PassiveAccessUnlock", "CGW1", 0),
+  ("CF_Gway_PassiveAccessLock", "CGW1", 0),
+  ("CF_Gway_DrvDrSw", "CGW1", 0),
+  ("CF_Gway_ParkBrakeSw", "CGW1", 0),
+]
 
 
 def can_printer(bus, max_msg, addr, ascii_decode):
-  logcan = messaging.sub_sock('can', addr=addr)
+  cp = CANParser("hyundai_kia_generic", signals, bus=0, enforce_checks=False)
+  sm = messaging.SubMaster(['deviceState', 'sensorEvents'], poll=['sensorEvents'])
 
-  start = sec_since_boot()
-  lp = sec_since_boot()
-  msgs = defaultdict(list)
+  can_sock = messaging.sub_sock('can', addr=addr)
+
   while 1:
-    can_recv = messaging.drain_sock(logcan, wait_for_one=True)
-    for x in can_recv:
-      for y in x.can:
-        if y.src == bus:
-          msgs[y.address].append(y.dat)
+    sm.update()
+    can_strs = messaging.drain_sock_raw(can_sock, wait_for_one=True)
+    cp.update_strings(can_strs)
+    if sm.frame % (100 / 20.) == 0:
+      print("_____________________")
+      print(f"{cp.vl['CGW1']['CF_Gway_DrvKeyLockSw']}")
+      print(f"{cp.vl['CGW1']['CF_Gway_DrvKeyUnlockSw']}")
+      print(f"{cp.vl['CGW1']['CF_Gway_PassiveAccessUnlock']}")
+      print(f"{cp.vl['CGW1']['CF_Gway_PassiveAccessLock']}")
+      print(f"{cp.vl['CGW1']['CF_Gway_DrvDrSw']}")
+      print(f"{cp.vl['CGW1']['CF_Gway_ParkBrakeSw']}")
 
-    if sec_since_boot() - lp > 0.1:
-      dd = chr(27) + "[2J"
-      dd += f"{sec_since_boot() - start:5.2f}\n"
-      for addr in sorted(msgs.keys()):
-        a = f"\"{msgs[addr][-1].decode('ascii', 'backslashreplace')}\"" if ascii_decode else ""
-        x = binascii.hexlify(msgs[addr][-1]).decode('ascii')
-        if max_msg is None or addr < max_msg:
-          dd += "%04X(%4d)(%6d) %s %s\n" % (addr, addr, len(msgs[addr]), x.ljust(20), a)
-      print(dd)
-      lp = sec_since_boot()
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="simple CAN data viewer",

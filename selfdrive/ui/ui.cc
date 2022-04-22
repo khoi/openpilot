@@ -139,7 +139,7 @@ static void update_state(UIState *s) {
       scene.pandaType = pandaStates[0].getPandaType();
 
       if (scene.pandaType != cereal::PandaState::PandaType::UNKNOWN) {
-        scene.ignition = false;
+        scene.ignition = sm["deviceState"].getDeviceState().getStartedSentry();
         for (const auto& pandaState : pandaStates) {
           scene.ignition |= pandaState.getIgnitionLine() || pandaState.getIgnitionCan();
         }
@@ -151,7 +151,7 @@ static void update_state(UIState *s) {
   if (sm.updated("carParams")) {
     scene.longitudinal_control = sm["carParams"].getCarParams().getOpenpilotLongitudinalControl();
   }
-  if (!scene.started && sm.updated("sensorEvents")) {
+  if (!(scene.started || scene.started_sentry) && sm.updated("sensorEvents")) {
     for (auto sensor : sm["sensorEvents"].getSensorEvents()) {
       if (sensor.which() == cereal::SensorEventData::ACCELERATION) {
         auto accel = sensor.getAcceleration().getV();
@@ -178,6 +178,8 @@ static void update_state(UIState *s) {
     scene.light_sensor = std::clamp<float>(1.0 - (ev / max_ev), 0.0, 1.0);
   }
   scene.started = sm["deviceState"].getDeviceState().getStarted() && scene.ignition;
+  scene.started_sentry = sm["deviceState"].getDeviceState().getStartedSentry();
+  scene.sentry_armed = sm["sentryState"].getSentryState().getArmed();
 }
 
 void ui_update_params(UIState *s) {
@@ -185,7 +187,7 @@ void ui_update_params(UIState *s) {
 }
 
 void UIState::updateStatus() {
-  if (scene.started && sm->updated("controlsState")) {
+  if ((scene.started || scene.started_sentry) && sm->updated("controlsState")) {
     auto controls_state = (*sm)["controlsState"].getControlsState();
     auto alert_status = controls_state.getAlertStatus();
     auto state = controls_state.getState();
@@ -201,15 +203,15 @@ void UIState::updateStatus() {
   }
 
   // Handle onroad/offroad transition
-  if (scene.started != started_prev || sm->frame == 1) {
-    if (scene.started) {
+  if ((scene.started || scene.started_sentry) != started_prev) {
+    if (scene.started || scene.started_sentry) {
       status = STATUS_DISENGAGED;
       scene.started_frame = sm->frame;
       scene.end_to_end = Params().getBool("EndToEndToggle");
       wide_camera = Hardware::TICI() ? Params().getBool("EnableWideCamera") : false;
     }
-    started_prev = scene.started;
-    emit offroadTransition(!scene.started);
+    started_prev = scene.started || scene.started_sentry;
+    emit offroadTransition(!(scene.started || scene.started_sentry));
   }
 }
 
@@ -219,6 +221,7 @@ UIState::UIState(QObject *parent) : QObject(parent) {
     "pandaStates", "carParams", "driverMonitoringState", "sensorEvents", "carState", "liveLocationKalman",
     "wideRoadCameraState",
     "liveMapData",
+    "sentryState",
   });
 
   Params params;
@@ -272,7 +275,7 @@ void Device::resetInteractiveTimout() {
 
 void Device::updateBrightness(const UIState &s) {
   float clipped_brightness = BACKLIGHT_OFFROAD;
-  if (s.scene.started) {
+  if (s.scene.started || s.scene.started_sentry) {
     // Scale to 0% to 100%
     clipped_brightness = 100.0 * s.scene.light_sensor;
 

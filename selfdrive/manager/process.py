@@ -70,6 +70,7 @@ class ManagerProcess(ABC):
   daemon = False
   sigkill = False
   persistent = False
+  sentry = False
   driverview = False
   notcar = False
   proc: Optional[Process] = None
@@ -183,7 +184,7 @@ class ManagerProcess(ABC):
 
 
 class NativeProcess(ManagerProcess):
-  def __init__(self, name, cwd, cmdline, enabled=True, persistent=False, driverview=False, notcar=False, unkillable=False, sigkill=False, watchdog_max_dt=None):
+  def __init__(self, name, cwd, cmdline, enabled=True, persistent=False, sentry=False, driverview=False, notcar=False, unkillable=False, sigkill=False, watchdog_max_dt=None):
     self.name = name
     self.cwd = cwd
     self.cmdline = cmdline
@@ -194,6 +195,7 @@ class NativeProcess(ManagerProcess):
     self.unkillable = unkillable
     self.sigkill = sigkill
     self.watchdog_max_dt = watchdog_max_dt
+    self.sentry = sentry
 
   def prepare(self) -> None:
     pass
@@ -215,7 +217,7 @@ class NativeProcess(ManagerProcess):
 
 
 class PythonProcess(ManagerProcess):
-  def __init__(self, name, module, enabled=True, persistent=False, driverview=False, notcar=False, unkillable=False, sigkill=False, watchdog_max_dt=None):
+  def __init__(self, name, module, enabled=True, persistent=False, sentry=False, driverview=False, notcar=False, unkillable=False, sigkill=False, watchdog_max_dt=None):
     self.name = name
     self.module = module
     self.enabled = enabled
@@ -225,6 +227,7 @@ class PythonProcess(ManagerProcess):
     self.unkillable = unkillable
     self.sigkill = sigkill
     self.watchdog_max_dt = watchdog_max_dt
+    sellf.sentry = sentry
 
   def prepare(self) -> None:
     if self.enabled:
@@ -287,7 +290,7 @@ class DaemonProcess(ManagerProcess):
     pass
 
 
-def ensure_running(procs: ValuesView[ManagerProcess], started: bool, driverview: bool=False, notcar: bool=False,
+def ensure_running(procs: ValuesView[ManagerProcess], started: bool, started_sentry: bool=False, driverview: bool=False, notcar: bool=False,
                    not_run: Optional[List[str]]=None) -> None:
   if not_run is None:
     not_run = []
@@ -306,6 +309,8 @@ def ensure_running(procs: ValuesView[ManagerProcess], started: bool, driverview:
         p.start()
       else:
         p.stop(block=False)
+    elif not p.sentry and started_sentry:
+      p.stop(block=False)
     elif started:
       p.start()
     else:
