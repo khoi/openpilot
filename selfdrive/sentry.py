@@ -48,7 +48,7 @@ def init(project: SentryProject) -> None:
   if not comma_remote or not is_registered_device() or PC:
     return
 
-  env = "release" if is_tested_branch() else "master"
+  env = "release"
   dongle_id = Params().get("DongleId", encoding='utf-8')
 
   integrations = []
