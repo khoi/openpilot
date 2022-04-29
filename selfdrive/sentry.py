@@ -13,9 +13,9 @@ from selfdrive.version import get_branch, get_commit, get_origin, get_version, \
 
 class SentryProject(Enum):
   # python project
-  SELFDRIVE = "https://6f3c7076c1e14b2aa10f5dde6dda0cc4@o33823.ingest.sentry.io/77924"
+  SELFDRIVE = "https://ce4f4c2af9a443b2941d36863e4e9be1@o1224589.ingest.sentry.io/6369626"
   # native project
-  SELFDRIVE_NATIVE = "https://3e4b586ed21a4479ad5d85083b639bc6@o33823.ingest.sentry.io/157615"
+  SELFDRIVE_NATIVE = "https://924b7a86e75a4a4bbb3e5d4b06334643@o1224589.ingest.sentry.io/6369627"
 
 
 def report_tombstone(fn: str, message: str, contents: str) -> None:
