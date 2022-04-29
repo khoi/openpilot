@@ -36,6 +36,7 @@ procs = [
   PythonProcess("updated", "selfdrive.updated", enabled=not PC, onroad=False, offroad=True),
   PythonProcess("uploader", "selfdrive.loggerd.uploader", offroad=True),
   PythonProcess("statsd", "selfdrive.statsd", offroad=True),
+  PythonProcess("notifyd", "selfdrive.notifyd", offroad=True),
 
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], onroad=False, notcar=True),
   PythonProcess("webjoystick", "tools.joystick.web", onroad=False, notcar=True),
