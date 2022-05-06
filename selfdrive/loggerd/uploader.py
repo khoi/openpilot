@@ -152,13 +152,14 @@ class Uploader():
             self.status_code = status_code
 
     try:
-      args = ["rsync", "-e", "ssh -p 2222 -i /data/id_rsa", "-azvhP", fn, "khoi@nas:/volume1/Private/Downloads/comma"]
+      args = ["/usr/bin/rsync", "-e", "ssh -p 2222 -i /data/id_rsa", "-azvhP", fn, "khoi@nas:/volume1/Private/Downloads/comma"]
       print(" ".join(args))
-      output = check_output(args, stderr=STDOUT, timeout=10, shell=True)
+      output = check_output(args, stderr=STDOUT, timeout=10, shell=False)
       print(output)
       self.last_resp = FakeResponse()
     except Exception as e:
       self.last_exc = (e, traceback.format_exc())
+      print(f"rsync exception {self.last_exc}")
       raise
 
   def normal_upload(self, key, fn):
@@ -191,6 +192,7 @@ class Uploader():
     else:
       start_time = time.monotonic()
       stat = self.normal_upload(key, fn)
+      print(f"fuck {stat}")
       if stat is not None and stat.status_code in (200, 201, 401, 403, 412):
         try:
           # tag file as uploaded
@@ -204,7 +206,7 @@ class Uploader():
         print(f"upload_success {fn}" if stat.status_code != 412 else f"upload_ignored {fn}")
       else:
         success = False
-        print(f"uploader_setxattr_failed 3 {fn}")
+        print(f"upload_failed {fn}")
 
     return success
 
