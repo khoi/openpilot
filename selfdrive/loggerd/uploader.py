@@ -153,7 +153,7 @@ class Uploader():
 
     try:
       args = ["/usr/bin/rsync", "--relative", "-e", "ssh -p 2222 -i /data/id_rsa", "-azvhP", fn, "khoi@nas:/volumeUSB1/usbshare/comma"]
-      output = check_output(args, stderr=STDOUT, timeout=10, shell=False)
+      output = check_output(args, stderr=STDOUT, timeout=30, shell=False)
       self.last_resp = FakeResponse()
     except Exception as e:
       self.last_exc = (e, traceback.format_exc())
@@ -190,7 +190,6 @@ class Uploader():
     else:
       start_time = time.monotonic()
       stat = self.normal_upload(key, fn)
-      print(f"fuck {stat}")
       if stat is not None and stat.status_code in (200, 201, 401, 403, 412):
         try:
           # tag file as uploaded
