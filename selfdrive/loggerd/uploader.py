@@ -153,9 +153,7 @@ class Uploader():
 
     try:
       args = ["/usr/bin/rsync", "--relative", "-e", "ssh -p 2222 -i /data/id_rsa", "-azvhP", fn, "khoi@nas:/volumeUSB1/usbshare/comma"]
-      print(" ".join(args))
       output = check_output(args, stderr=STDOUT, timeout=10, shell=False)
-      print(output)
       self.last_resp = FakeResponse()
     except Exception as e:
       self.last_exc = (e, traceback.format_exc())
