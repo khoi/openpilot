@@ -152,8 +152,9 @@ class Uploader():
             self.status_code = status_code
 
     try:
-      output = check_output(["rsync", "-e", "'ssh -p 2222 -i /data/id_rsa'", "-azvhP", fn, "khoi@nas:/volume1/Private/Downloads/comma"], stderr=STDOUT, timeout=10, shell=True)
-      print("___UPLOADER___")
+      args = ["rsync", "-e", "ssh -p 2222 -i /data/id_rsa", "-azvhP", fn, "khoi@nas:/volume1/Private/Downloads/comma"]
+      print(" ".join(args))
+      output = check_output(args, stderr=STDOUT, timeout=10, shell=True)
       print(output)
       self.last_resp = FakeResponse()
     except Exception as e:
