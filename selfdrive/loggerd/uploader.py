@@ -152,6 +152,10 @@ class Uploader():
             self.status_code = status_code
 
     try:
+      if key.endswith('.bz2') and not fn.endswith('.bz2'):
+        check_output(["bzip2", "-zk", fn], stderr=STDOUT)
+        fn = fn + '.bz2'
+
       args = ["/usr/bin/rsync", "--relative", "-e", "ssh -p 2222 -i /data/id_rsa", "-azvhP", fn, "khoi@nas:/volumeUSB1/usbshare/comma"]
       output = check_output(args, stderr=STDOUT, timeout=30, shell=False)
       self.last_resp = FakeResponse()
