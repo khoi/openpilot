@@ -186,7 +186,7 @@ class Uploader():
         # tag files of 0 size as uploaded
         setxattr(fn, UPLOAD_ATTR_NAME, UPLOAD_ATTR_VALUE)
       except OSError:
-        print(f"uploader_setxattr_failed {fn}")
+        print(f"uploader_setxattr_failed 1 {fn}")
       success = True
     else:
       start_time = time.monotonic()
@@ -196,7 +196,7 @@ class Uploader():
           # tag file as uploaded
           setxattr(fn, UPLOAD_ATTR_NAME, UPLOAD_ATTR_VALUE)
         except OSError:
-          print(f"uploader_setxattr_failed {fn}")
+          print(f"uploader_setxattr_failed 2 {fn}")
         self.last_filename = fn
         self.last_time = time.monotonic() - start_time
         self.last_speed = (sz / 1e6) / self.last_time
@@ -204,7 +204,7 @@ class Uploader():
         print(f"upload_success {fn}" if stat.status_code != 412 else f"upload_ignored {fn}")
       else:
         success = False
-        print(f"uploader_setxattr_failed {fn}")
+        print(f"uploader_setxattr_failed 3 {fn}")
 
     return success
 
