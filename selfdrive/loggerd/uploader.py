@@ -8,6 +8,7 @@ import threading
 import time
 import traceback
 from pathlib import Path
+from subprocess import STDOUT, check_output
 
 from cereal import log
 import cereal.messaging as messaging
@@ -26,7 +27,6 @@ UPLOAD_ATTR_VALUE = b'1'
 allow_sleep = bool(os.getenv("UPLOADER_SLEEP", "1"))
 force_wifi = True
 fake_upload = os.getenv("FAKEUPLOAD") is not None
-
 
 def get_directory_sort(d):
   return list(map(lambda s: s.rjust(10, '0'), d.rsplit('--', 1)))
@@ -147,33 +147,15 @@ class Uploader():
     return None
 
   def do_upload(self, key, fn):
+    class FakeResponse():
+          def __init__(self, status_code=200):
+            self.status_code = status_code
+
     try:
-      url_resp = self.api.get("v1.4/" + self.dongle_id + "/upload_url/", timeout=10, path=key, access_token=self.api.get_token())
-      if url_resp.status_code == 412:
-        self.last_resp = url_resp
-        return
-
-      url_resp_json = json.loads(url_resp.text)
-      url = url_resp_json['url']
-      headers = url_resp_json['headers']
-      cloudlog.debug("upload_url v1.4 %s %s", url, str(headers))
-
-      if fake_upload:
-        cloudlog.debug(f"*** WARNING, THIS IS A FAKE UPLOAD TO {url} ***")
-
-        class FakeResponse():
-          def __init__(self):
-            self.status_code = 200
-
-        self.last_resp = FakeResponse()
-      else:
-        with open(fn, "rb") as f:
-          data = f.read()
-
-          if key.endswith('.bz2') and not fn.endswith('.bz2'):
-            data = bz2.compress(data)
-
-          self.last_resp = requests.put(url, data=data, headers=headers, timeout=10)
+      output = check_output(["rsync", "-e", "'ssh -p 2222 -i /data/id_rsa'", "-azvhP", fn, "khoi@nas:/volume1/Private/Downloads/comma"], stderr=STDOUT, timeout=10, shell=True)
+      print("___UPLOADER___")
+      print(output)
+      self.last_resp = FakeResponse()
     except Exception as e:
       self.last_exc = (e, traceback.format_exc())
       raise
