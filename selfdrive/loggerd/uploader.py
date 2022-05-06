@@ -179,14 +179,14 @@ class Uploader():
       cloudlog.exception("upload: getsize failed")
       return False
 
-    cloudlog.event("upload_start", key=key, fn=fn, sz=sz, network_type=network_type, metered=metered)
+    print(f"upload_start {fn}")
 
     if sz == 0:
       try:
         # tag files of 0 size as uploaded
         setxattr(fn, UPLOAD_ATTR_NAME, UPLOAD_ATTR_VALUE)
       except OSError:
-        cloudlog.event("uploader_setxattr_failed", exc=self.last_exc, key=key, fn=fn, sz=sz)
+        print(f"uploader_setxattr_failed {fn}")
       success = True
     else:
       start_time = time.monotonic()
@@ -196,16 +196,15 @@ class Uploader():
           # tag file as uploaded
           setxattr(fn, UPLOAD_ATTR_NAME, UPLOAD_ATTR_VALUE)
         except OSError:
-          cloudlog.event("uploader_setxattr_failed", exc=self.last_exc, key=key, fn=fn, sz=sz)
-
+          print(f"uploader_setxattr_failed {fn}")
         self.last_filename = fn
         self.last_time = time.monotonic() - start_time
         self.last_speed = (sz / 1e6) / self.last_time
         success = True
-        cloudlog.event("upload_success" if stat.status_code != 412 else "upload_ignored", key=key, fn=fn, sz=sz, network_type=network_type, metered=metered)
+        print(f"upload_success {fn}" if stat.status_code != 412 else f"upload_ignored {fn}")
       else:
         success = False
-        cloudlog.event("upload_failed", stat=stat, exc=self.last_exc, key=key, fn=fn, sz=sz, network_type=network_type, metered=metered)
+        print(f"uploader_setxattr_failed {fn}")
 
     return success
 
