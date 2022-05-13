@@ -72,7 +72,7 @@ class CarState(CarStateBase):
       ret.cruiseState.standstill = False
     else:
       ret.cruiseState.available = cp.vl["SCC11"]["MainMode_ACC"] == 1
-      ret.cruiseState.enabled = cp.vl["SCC12"]["ACCMode"] != 0
+      ret.cruiseState.enabled = ret.cruiseState.available
       ret.cruiseState.standstill = cp.vl["SCC11"]["SCCInfoDisplay"] == 4.
       speed_conv = CV.MPH_TO_MS if cp.vl["CLU11"]["CF_Clu_SPEED_UNIT"] else CV.KPH_TO_MS
       ret.cruiseState.speed = cp.vl["SCC11"]["VSetDis"] * speed_conv
