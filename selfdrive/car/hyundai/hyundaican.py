@@ -69,8 +69,15 @@ def create_clu11(packer, frame, clu11, button):
   return packer.make_can_msg("CLU11", 0, values)
 
 
-def create_lfahda_mfc(packer, enabled, hda_set_speed=0):
+def create_lfahda_mfc(packer, enabled, left_lane_visible, right_lane_visible, hda_set_speed=0):
+  ldw = 0
+  if left_lane_visible:
+    ldw += 1
+  if right_lane_visible:
+    ldw += 2
+    
   values = {
+    "HDA_LdwSysState": ldw,
     "LFA_Icon_State": 2 if enabled else 0,
     "HDA_Active": 1 if hda_set_speed else 0,
     "HDA_Icon_State": 2 if hda_set_speed else 0,
