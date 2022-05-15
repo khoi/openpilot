@@ -11,6 +11,7 @@ from common.params import Params, put_nonblocking
 import cereal.messaging as messaging
 from common.conversions import Conversions as CV
 from panda import ALTERNATIVE_EXPERIENCE
+from selfdrive.controls.lib.desire_helper import LANE_CHANGE_SPEED_NO_NUDGE
 from selfdrive.swaglog import cloudlog
 from selfdrive.boardd.boardd import can_list_to_can_capnp
 from selfdrive.car.car_helpers import get_car, get_startup_event, get_one_can
@@ -208,7 +209,7 @@ class Controls:
       self.events.add(EventName.controlsInitializing)
       return
 
-    if CS.gasPressed:
+    if CS.gasPressed or (CS.leftBlinker or CS.rightBlinker and CS.vEgo < LANE_CHANGE_SPEED_NO_NUDGE):
       self.events.add(EventName.pedalPressedPreEnable if self.disengage_on_accelerator else
                       EventName.gasPressedOverride)
 
