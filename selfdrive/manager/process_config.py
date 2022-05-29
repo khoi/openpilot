@@ -42,7 +42,7 @@ procs = [
   PythonProcess("thermald", "selfdrive.thermald.thermald", offroad=True),
   PythonProcess("timezoned", "selfdrive.timezoned", enabled=TICI, offroad=True),
   PythonProcess("tombstoned", "selfdrive.tombstoned", enabled=not PC, offroad=True),
-  PythonProcess("notifyd", "selfdrive.notifyd", onroad=False, offroad=True),
+  # PythonProcess("notifyd", "selfdrive.notifyd", onroad=False, offroad=True),
   PythonProcess("uploader", "selfdrive.loggerd.uploader", offroad=True),
   # Experimental
   PythonProcess("rawgpsd", "selfdrive.sensord.rawgps.rawgpsd", enabled=os.path.isfile("/persist/comma/use-quectel-rawgps")),
