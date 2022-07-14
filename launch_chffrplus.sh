@@ -20,15 +20,7 @@ function agnos_init {
   # set success flag for current boot slot
   sudo abctl --set_success
 
-  # Check if AGNOS update is required
-  if [ $(< /VERSION) != "$AGNOS_VERSION" ]; then
-    AGNOS_PY="$DIR/system/hardware/tici/agnos.py"
-    MANIFEST="$DIR/system/hardware/tici/agnos.json"
-    if $AGNOS_PY --verify $MANIFEST; then
-      sudo reboot
-    fi
-    $DIR/system/hardware/tici/updater $AGNOS_PY $MANIFEST
-  fi
+  
 }
 
 function launch {
