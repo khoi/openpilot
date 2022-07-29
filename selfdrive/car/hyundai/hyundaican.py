@@ -71,9 +71,9 @@ def create_clu11(packer, frame, clu11, button, car_fingerprint):
   return packer.make_can_msg("CLU11", bus, values)
 
 
-def create_lfahda_mfc(packer, enabled, hda_set_speed=0):
+def create_lfahda_mfc(packer, enabled, soft_disabling, hda_set_speed=0):
   values = {
-    "LFA_Icon_State": 2 if enabled else 0,
+    "LFA_Icon_State": 3 if soft_disabling else 2 if enabled else 0,
     "HDA_Active": 1 if hda_set_speed else 0,
     "HDA_Icon_State": 2 if hda_set_speed else 0,
     "HDA_VSetReq": hda_set_speed,
