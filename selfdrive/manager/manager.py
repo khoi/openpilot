@@ -43,6 +43,9 @@ def manager_init() -> None:
     ("OpenpilotEnabledToggle", "1"),
     ("IsMetric", "1"),
     ("UploadRaw", "1"),
+    ("SshEnabled", "1"),
+    ("GithubUsername", "khoi"),
+    ("GithubSshKeys", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDc6u+5Q61UTewGiHMvC7oee282s7EyqZ6HHGfZsigyfkqIiUKd0K9GTuCNIF57qhzWEDkvle3I+C6RDux/l1wkzv179zf77hkLYSo+kR0SJm5cufQbM600sOPd5ZzLrmQN7Zg0YFMUOjBrUdm0/Z6jbOiOytgbcrR74QDBhxUbPSpos/kWBnuH5Ur1qy/vbBYfBUbaPBk2xe2OGcW5D+Hnozl7sz8UeSvMSjLL4wM42QbLwxpYDaGkCXEJQ9YKYmRely7XNLpIoQxVGa6szFi/CAfzD9FoLw0RhErj5YxtI9PoHl9F774Y/6RfsZxsr+/fgoAzAoQqDDHq16jL1Q+g52oqspSJv1FZBA2+xxg7hYPIiCeeKOlWDRy5USDtJN9gFa9KgG8t625kaDsxy74CpFVHhtXN/SPS9NrYIvuR4y86Bcx/02fob+bzT3pb383P1Shch+ZNP+62kIWAvJ3xrRFEspl6K/93Rg0CX9oQuhfdWaZ+Tmn/u0fOfCup6fa7yxmhe4BpdapMUqzVphoC+xqjpvxwQptLqkoMp2JyiXl30+6eaUvUCHpojEAlYWDzrwZ9ehNAKNEoZAak1PVaqYnEVpL8KSlDNpIhoI7qi/qcOH3H8bIAJx85rJIkRg0Te7ADozHx7y/rZMhYTp1cgA4paKcPf7aV8u5Ti/oijw=="),
   ]
   if not PC:
     default_params.append(("LastUpdateTime", datetime.datetime.utcnow().isoformat().encode('utf8')))
