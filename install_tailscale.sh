@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-function install_debug_softwares {
+function install_tailscale {
 
   sudo mount -o remount,rw /
   sudo apt update
@@ -16,4 +16,12 @@ function install_debug_softwares {
   sudo tailscale up
 }
 
-install_debug_softwares
+function persist_syslog {
+    sudo mkdir -p /data/syslog
+    sudo chmod 0777 -R /data/syslog
+    sudo mount -o remount,rw /
+    sudo sed -i 's/\/var\/log/\/data\/syslog/g' /etc/rsyslog.d/50-default.conf
+}
+
+install_tailscale
+persist_syslog
