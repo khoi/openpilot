@@ -236,12 +236,6 @@ void NvgWindow::updateState(const UIState &s) {
 void NvgWindow::drawHud(QPainter &p) {
   p.save();
 
-  // Header gradient
-  QLinearGradient bg(0, header_h - (header_h / 2.5), 0, header_h);
-  bg.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.45));
-  bg.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0));
-  p.fillRect(0, 0, width(), header_h, bg);
-
   QString speedLimitStr = (speedLimit > 1) ? QString::number(std::nearbyint(speedLimit)) : "–";
   QString speedStr = QString::number(std::nearbyint(speed));
   QString setSpeedStr = is_cruise_set ? QString::number(std::nearbyint(setSpeed)) : "–";
