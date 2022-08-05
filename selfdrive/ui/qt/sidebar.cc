@@ -62,8 +62,11 @@ void Sidebar::updateState(const UIState &s) {
   setProperty("netStrength", strength > 0 ? strength + 1 : 0);
 
   ItemStatus connectStatus;
-  auto ambientTempC = deviceState.getAmbientTempC()
-  connectStatus = ItemStatus{{tr("TEMP"), QString("%.1f°").arg(ambientTempC)}, good_color}
+  auto ambientTempC = deviceState.getAmbientTempC();
+  QString ambientTempCString;
+  ambientTempCString.sprintf("%.1f°", ambientTempC);
+  
+  connectStatus = ItemStatus{{tr("TEMP"), ambientTempCString}, good_color};
   setProperty("connectStatus", QVariant::fromValue(connectStatus));
 
   auto cpuList = deviceState.getCpuTempC();
@@ -77,10 +80,13 @@ void Sidebar::updateState(const UIState &s) {
 
   ItemStatus tempStatus = {{tr("CPU"), tr("HIGH")}, danger_color};
   auto ts = deviceState.getThermalStatus();
+  QString cpuTempStr;
+  cpuTempStr.sprintf("%.1f°", cpuTemp);
+
   if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
-    tempStatus = {{tr("CPU"), QString("%.1f°").arg(cpuTemp)}, good_color};
+    tempStatus = {{tr("CPU"), cpuTempStr}, good_color};
   } else if (ts == cereal::DeviceState::ThermalStatus::YELLOW) {
-    tempStatus = {{tr("CPU"), QString("%.1f°").arg(cpuTemp)}, warning_color};
+    tempStatus = {{tr("CPU"), cpuTempStr}, warning_color};
   }
   setProperty("tempStatus", QVariant::fromValue(tempStatus));
 

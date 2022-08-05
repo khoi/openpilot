@@ -41,6 +41,13 @@ class NvgWindow : public CameraViewWidget {
   Q_PROPERTY(bool hideDM MEMBER hideDM);
   Q_PROPERTY(bool rightHandDM MEMBER rightHandDM);
   Q_PROPERTY(int status MEMBER status);
+  Q_PROPERTY(int is_braking MEMBER is_braking);
+  Q_PROPERTY(float tpms_fl MEMBER tpms_fl);
+  Q_PROPERTY(float tpms_fr MEMBER tpms_fr);
+  Q_PROPERTY(float tpms_rl MEMBER tpms_rl);
+  Q_PROPERTY(float tpms_rr MEMBER tpms_rr);
+  Q_PROPERTY(float gpsAccuracy MEMBER gpsAccuracy)
+  Q_PROPERTY(int gpsSatCount MEMBER gpsSatCount)
 
 public:
   explicit NvgWindow(VisionStreamType type, QWidget* parent = 0);
@@ -49,6 +56,8 @@ public:
 private:
   void drawIcon(QPainter &p, int x, int y, QPixmap &img, QBrush bg, float opacity);
   void drawText(QPainter &p, int x, int y, const QString &text, int alpha = 255);
+  void drawText2(QPainter &p, int x, int y, int flags, const QString &text, const QColor& color);
+  void drawTextWithColor(QPainter &p, int x, int y, const QString &text, QColor& color);
 
   QPixmap engage_img;
   QPixmap dm_img;
@@ -57,7 +66,7 @@ private:
   float speed;
   QString speedUnit;
   float setSpeed;
-  float speedLimit;
+float speedLimit;
   bool is_cruise_set = false;
   bool is_metric = false;
   bool engageable = false;
@@ -68,6 +77,13 @@ private:
   bool has_eu_speed_limit = false;
   bool v_ego_cluster_seen = false;
   int status = STATUS_DISENGAGED;
+  bool is_braking = false;
+  float tpms_fl = 0;
+  float tpms_fr = 0;
+  float tpms_rl = 0;
+  float tpms_rr = 0;
+  float gpsAccuracy = 0;
+  int gpsSatCount = 0;
 
 protected:
   void paintGL() override;
@@ -83,6 +99,16 @@ protected:
 
   double prev_draw_t = 0;
   FirstOrderFilter fps_filter;
+
+  // DEV UI
+  QPixmap ic_brake;
+  QPixmap ic_tire_pressure;
+  QPixmap ic_autohold_warning;
+  QPixmap ic_autohold_active;
+  QPixmap ic_satellite;
+
+  void drawBottomIcons(QPainter &p);
+  void drawGpsStatus(QPainter &p);
 };
 
 // container for all onroad widgets

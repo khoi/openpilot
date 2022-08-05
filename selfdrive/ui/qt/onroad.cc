@@ -11,6 +11,23 @@
 #include "selfdrive/ui/qt/maps/map_helpers.h"
 #endif
 
+static const QColor get_tpms_color(float tpms) {
+    if(tpms < 5 || tpms > 60) // N/A
+        return QColor(255, 255, 255, 220);
+    if(tpms < 31)
+        return QColor(255, 90, 90, 220);
+    return QColor(255, 255, 255, 220);
+}
+
+static const QString get_tpms_text(float tpms) {
+    if(tpms < 5 || tpms > 60)
+        return "";
+
+    char str[32];
+    snprintf(str, sizeof(str), "%.0f", round(tpms));
+    return QString(str);
+}
+
 OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
   QVBoxLayout *main_layout  = new QVBoxLayout(this);
   main_layout->setMargin(bdr_s);
@@ -173,6 +190,11 @@ void OnroadAlerts::paintEvent(QPaintEvent *event) {
 NvgWindow::NvgWindow(VisionStreamType type, QWidget* parent) : fps_filter(UI_FREQ, 3, 1. / UI_FREQ), CameraViewWidget("camerad", type, true, parent) {
   engage_img = loadPixmap("../assets/img_chffr_wheel.png", {img_size, img_size});
   dm_img = loadPixmap("../assets/img_driver_face.png", {img_size, img_size});
+  ic_brake = QPixmap("../assets/images/img_brake_disc.png").scaled(img_size, img_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+  ic_autohold_warning = QPixmap("../assets/images/img_autohold_warning.png").scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  ic_autohold_active = QPixmap("../assets/images/img_autohold_active.png").scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  ic_tire_pressure = QPixmap("../assets/images/img_tire_pressure.png");
+  ic_satellite = QPixmap("../assets/images/satellite.png");
 }
 
 void NvgWindow::updateState(const UIState &s) {
@@ -181,8 +203,9 @@ void NvgWindow::updateState(const UIState &s) {
 
   const bool cs_alive = sm.alive("controlsState");
   const bool nav_alive = sm.alive("navInstruction") && sm["navInstruction"].getValid();
-
+  const auto gps = sm["gpsLocationExternal"].getGpsLocationExternal();
   const auto cs = sm["controlsState"].getControlsState();
+  const auto ubloxGnss = sm["ubloxGnss"].getUbloxGnss();
 
   // Handle older routes where vCruiseCluster is not set
   float v_cruise =  cs.getVCruiseCluster() == 0.0 ? cs.getVCruise() : cs.getVCruiseCluster();
@@ -218,12 +241,20 @@ void NvgWindow::updateState(const UIState &s) {
   setProperty("speedUnit", s.scene.is_metric ? tr("km/h") : tr("mph"));
   setProperty("hideDM", cs.getAlertSize() != cereal::ControlsState::AlertSize::NONE);
   setProperty("status", s.status);
+  setProperty("is_braking", sm["carState"].getCarState().getBrakeLights());
 
   // update engageability and DM icons at 2Hz
   if (sm.frame % (UI_FREQ / 2) == 0) {
     setProperty("engageable", cs.getEngageable() || cs.getEnabled());
     setProperty("dmActive", sm["driverMonitoringState"].getDriverMonitoringState().getIsActiveMode());
     setProperty("rightHandDM", sm["driverMonitoringState"].getDriverMonitoringState().getIsRHD());
+
+    setProperty("tpms_fl", sm["carState"].getCarState().getTpms().getFl());
+    setProperty("tpms_fr", sm["carState"].getCarState().getTpms().getFr());
+    setProperty("tpms_rl", sm["carState"].getCarState().getTpms().getRl());
+    setProperty("tpms_rr", sm["carState"].getCarState().getTpms().getRr());
+    setProperty("gpsAccuracy", gps.getAccuracy());
+    setProperty("gpsSatCount", ubloxGnss.getMeasurementReport().getNumMeas());
   }
 
   if (s.scene.calibration_valid) {
@@ -370,22 +401,11 @@ void NvgWindow::drawHud(QPainter &p) {
 
   // current speed
   configFont(p, "Inter", 176, "Bold");
-  drawText(p, rect().center().x(), 210, speedStr);
+  QColor speedColor = is_braking ? redColor() : whiteColor();
+  drawTextWithColor(p, rect().center().x(), 210, speedStr, speedColor);
   configFont(p, "Inter", 66, "Regular");
   drawText(p, rect().center().x(), 290, speedUnit, 200);
 
-  // engage-ability icon
-  if (engageable) {
-    drawIcon(p, rect().right() - radius / 2 - bdr_s * 2, radius / 2 + int(bdr_s * 1.5),
-             engage_img, bg_colors[status], 1.0);
-  }
-
-  // dm icon
-  if (!hideDM) {
-    int dm_icon_x = rightHandDM ? rect().right() -  radius / 2 - (bdr_s * 2) : radius / 2 + (bdr_s * 2);
-    drawIcon(p, dm_icon_x, rect().bottom() - footer_h / 2,
-             dm_img, blackColor(70), dmActive ? 1.0 : 0.2);
-  }
   p.restore();
 }
 
@@ -394,6 +414,24 @@ void NvgWindow::drawText(QPainter &p, int x, int y, const QString &text, int alp
   real_rect.moveCenter({x, y - real_rect.height() / 2});
 
   p.setPen(QColor(0xff, 0xff, 0xff, alpha));
+  p.drawText(real_rect.x(), real_rect.bottom(), text);
+}
+
+void NvgWindow::drawText2(QPainter &p, int x, int y, int flags, const QString &text, const QColor& color) {
+  QFontMetrics fm(p.font());
+  QRect rect = fm.boundingRect(text);
+  rect.adjust(-1, -1, 1, 1);
+  p.setPen(color);
+  p.drawText(QRect(x, y, rect.width()+1, rect.height()), flags, text);
+}
+
+void NvgWindow::drawTextWithColor(QPainter &p, int x, int y, const QString &text, QColor& color) {
+  QFontMetrics fm(p.font());
+  QRect init_rect = fm.boundingRect(text);
+  QRect real_rect = fm.boundingRect(init_rect, 0, text);
+  real_rect.moveCenter({x, y - real_rect.height() / 2});
+
+  p.setPen(color);
   p.drawText(real_rect.x(), real_rect.bottom(), text);
 }
 
@@ -531,9 +569,12 @@ void NvgWindow::paintGL() {
         drawLead(painter, leads[1], s->scene.lead_vertices[1]);
       }
     }
+
+    drawGpsStatus(painter);
   }
 
   drawHud(painter);
+  drawBottomIcons(painter);
 
   double cur_draw_t = millis_since_boot();
   double dt = cur_draw_t - prev_draw_t;
@@ -549,4 +590,89 @@ void NvgWindow::showEvent(QShowEvent *event) {
 
   ui_update_params(uiState());
   prev_draw_t = millis_since_boot();
+}
+
+// DEV UI
+void NvgWindow::drawBottomIcons(QPainter &p) {
+  p.save();
+
+  // tire pressure
+  {
+    const int w = 58;
+    const int h = 126;
+    const int x = 110;
+    const int y = height() - h - 85;
+
+    p.setOpacity(0.8);
+    p.drawPixmap(x, y, w, h, ic_tire_pressure);
+
+    configFont(p, "Inter", 38, "Bold");
+
+    QFontMetrics fm(p.font());
+    QRect rcFont = fm.boundingRect("9");
+
+    int center_x = x + 3;
+    int center_y = y + h/2;
+    const int marginX = (int)(rcFont.width() * 2.7f);
+    const int marginY = (int)((h/2 - rcFont.height()) * 0.7f);
+
+    drawText2(p, center_x-marginX, center_y-marginY-rcFont.height(), Qt::AlignRight, get_tpms_text(tpms_fl), get_tpms_color(tpms_fl));
+    drawText2(p, center_x+marginX, center_y-marginY-rcFont.height(), Qt::AlignLeft, get_tpms_text(tpms_fr), get_tpms_color(tpms_fr));
+    drawText2(p, center_x-marginX, center_y+marginY, Qt::AlignRight, get_tpms_text(tpms_rl), get_tpms_color(tpms_rl));
+    drawText2(p, center_x+marginX, center_y+marginY, Qt::AlignLeft, get_tpms_text(tpms_rr), get_tpms_color(tpms_rr));
+  }
+
+  // int x = radius / 2 + (bdr_s * 2) + (radius + 50);
+  // const int y = rect().bottom() - footer_h / 2 - 10;
+
+  // // cruise gap
+  // p.setPen(Qt::NoPen);
+  // p.setBrush(QBrush(QColor(0, 0, 0, 255 * .1f)));
+  // p.drawEllipse(x - radius / 2, y - radius / 2, radius, radius);
+  // QString str;
+  // float textSize = 50.f;
+  // QColor textColor = QColor(255, 255, 255, 200);
+  // str = "N/A";
+  // configFont(p, "Inter", 35, "Bold");
+  // drawText(p, x, y-20, "GAP", 200);
+  // configFont(p, "Inter", textSize, "Bold");
+  // drawTextWithColor(p, x, y+50, str, textColor);
+
+  // // brake
+  // x = radius / 2 + (bdr_s * 2) + (radius + 50) * 2;
+  // bool brake_valid = car_state.getBrakeLights();
+  // float img_alpha = brake_valid ? 1.0f : 0.15f;
+  // float bg_alpha = brake_valid ? 0.3f : 0.1f;
+  // drawIcon(p, x, y, ic_brake, QColor(0, 0, 0, (255 * bg_alpha)), img_alpha);
+
+  p.restore();
+}
+
+void NvgWindow::drawGpsStatus(QPainter &p) {
+  int w = 120;
+  int h = 100;
+  int x = width() - w - 30;
+  int y = 30;
+
+  p.save();
+
+  p.setOpacity(0.8);
+  p.drawPixmap(x, y, w, h, ic_satellite);
+
+  configFont(p, "Inter", 40, "Bold");
+  p.setPen(QColor(255, 255, 255, 200));
+  p.setRenderHint(QPainter::TextAntialiasing);
+
+  QRect rect = QRect(x, y + h + 10, w, 40);
+  rect.adjust(-30, 0, 30, 0);
+  QString str;
+
+  if (gpsSatCount == 0) {
+    str.sprintf("NO SAT");
+  } else {
+    str.sprintf("%.1fm (%d)", gpsAccuracy, gpsSatCount);
+  }
+  p.drawText(rect, Qt::AlignHCenter, str);
+
+  p.restore();
 }
