@@ -106,10 +106,13 @@ void Sidebar::updateState(const UIState &s) {
 
   ItemStatus tempStatus = {{tr("CPU"), tr("HIGH")}, danger_color};
   auto ts = deviceState.getThermalStatus();
+  QString cpuTempStr;
+  cpuTempStr.sprintf("%.1f°", cpuTemp);
+
   if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
-    tempStatus = {{tr("CPU"), QString("%.1f°").arg(cpuTemp)}, good_color};
+    tempStatus = {{tr("CPU"), cpuTempStr}, good_color};
   } else if (ts == cereal::DeviceState::ThermalStatus::YELLOW) {
-    tempStatus = {{tr("CPU"), QString("%.1f°").arg(cpuTemp)}, warning_color};
+    tempStatus = {{tr("CPU"), cpuTempStr}, warning_color};
   }
   setProperty("tempStatus", QVariant::fromValue(tempStatus));
 

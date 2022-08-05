@@ -11,6 +11,23 @@
 #include "selfdrive/ui/qt/maps/map_helpers.h"
 #endif
 
+static const QColor get_tpms_color(float tpms) {
+    if(tpms < 5 || tpms > 60) // N/A
+        return QColor(255, 255, 255, 220);
+    if(tpms < 31)
+        return QColor(255, 90, 90, 220);
+    return QColor(255, 255, 255, 220);
+}
+
+static const QString get_tpms_text(float tpms) {
+    if(tpms < 5 || tpms > 60)
+        return "";
+
+    char str[32];
+    snprintf(str, sizeof(str), "%.0f", round(tpms));
+    return QString(str);
+}
+
 OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
   QVBoxLayout *main_layout  = new QVBoxLayout(this);
   main_layout->setMargin(bdr_s);
@@ -176,6 +193,10 @@ AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget* par
   engage_img = loadPixmap("../assets/img_chffr_wheel.png", {img_size, img_size});
   experimental_img = loadPixmap("../assets/img_experimental.svg", {img_size - 5, img_size - 5});
   dm_img = loadPixmap("../assets/img_driver_face.png", {img_size, img_size});
+  ic_tire_pressure = QPixmap("../assets/images/img_tire_pressure.png");
+  direction_img = loadPixmap("../assets/img_direction.png", {img_size, img_size});
+  turnsignal_l_img = loadPixmap("../assets/img_turnsignal_l.png", {img_size, img_size});
+  turnsignal_r_img = loadPixmap("../assets/img_turnsignal_r.png", {img_size, img_size});
 }
 
 void AnnotatedCameraWidget::updateState(const UIState &s) {
@@ -184,8 +205,8 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
 
   const bool cs_alive = sm.alive("controlsState");
   const bool nav_alive = sm.alive("navInstruction") && sm["navInstruction"].getValid();
-
   const auto cs = sm["controlsState"].getControlsState();
+  const auto ubloxGnss = sm["ubloxGnss"].getUbloxGnss();
 
   // Handle older routes where vCruiseCluster is not set
   float v_cruise =  cs.getVCruiseCluster() == 0.0 ? cs.getVCruise() : cs.getVCruiseCluster();
@@ -221,12 +242,63 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
   setProperty("speedUnit", s.scene.is_metric ? tr("km/h") : tr("mph"));
   setProperty("hideDM", cs.getAlertSize() != cereal::ControlsState::AlertSize::NONE);
   setProperty("status", s.status);
+  setProperty("is_braking", sm["carState"].getCarState().getBrakeLights());
+  
+  // dev ui
+  const auto leadOne = sm["radarState"].getRadarState().getLeadOne();
+  const auto gpsLocationExternal = sm["gpsLocationExternal"].getGpsLocationExternal();
+  const auto carState = sm["carState"].getCarState();
+  const auto liveTorqueParameters = sm["liveTorqueParameters"].getLiveTorqueParameters();
+  const auto deviceState = sm["deviceState"].getDeviceState();
+
+  setProperty("lead_d_rel", leadOne.getDRel());
+  setProperty("lead_v", leadOne.getVLead());
+  setProperty("angleSteers", carState.getSteeringAngleDeg());
+  setProperty("steerAngleDesired", cs.getLateralControlState().getPidState().getSteeringAngleDesiredDeg());
+  setProperty("gpsAccuracy", gpsLocationExternal.getAccuracy());
+  setProperty("altitude", gpsLocationExternal.getAltitude());
+  setProperty("bearingAccuracyDeg", gpsLocationExternal.getBearingAccuracyDeg());
+  setProperty("bearingDeg", gpsLocationExternal.getBearingDeg());
+  setProperty("torqueLatAccel", liveTorqueParameters.getLatAccelFactorFiltered());
+  setProperty("torqueFriction", liveTorqueParameters.getFrictionCoefficientFiltered());
+  setProperty("left_bsm", carState.getLeftBlindspot());
+  setProperty("right_bsm", carState.getRightBlindspot());
+  setProperty("left_blinker", carState.getLeftBlinker());
+  setProperty("right_blinker", carState.getRightBlinker());
 
   // update engageability and DM icons at 2Hz
   if (sm.frame % (UI_FREQ / 2) == 0) {
     setProperty("engageable", cs.getEngageable() || cs.getEnabled());
     setProperty("dmActive", sm["driverMonitoringState"].getDriverMonitoringState().getIsActiveMode());
     setProperty("rightHandDM", sm["driverMonitoringState"].getDriverMonitoringState().getIsRHD());
+
+    setProperty("tpms_fl", sm["carState"].getCarState().getTpms().getFl());
+    setProperty("tpms_fr", sm["carState"].getCarState().getTpms().getFr());
+    setProperty("tpms_rl", sm["carState"].getCarState().getTpms().getRl());
+    setProperty("tpms_rr", sm["carState"].getCarState().getTpms().getRr());
+    setProperty("gpsOk", sm["liveLocationKalman"].getLiveLocationKalman().getGpsOK());
+    auto numMeas = ubloxGnss.getMeasurementReport().getNumMeas();
+    if (numMeas > 0) setProperty("gpsSatCount", numMeas);
+
+    auto cpuList = deviceState.getCpuTempC();
+    cpuTemp = 0;
+    if (cpuList.size() > 0) {
+      for(int i = 0; i < cpuList.size(); i++) {
+        cpuTemp += cpuList[i];
+      }    
+      cpuTemp /= cpuList.size();
+    }
+    setProperty("cpuTemp", cpuTemp);
+    
+    auto cpuUsage = deviceState.getCpuUsagePercent();
+    cpuPerc = 0;
+    if (cpuUsage.size() > 0) {
+      for(int i = 0; i < cpuUsage.size(); i++) {
+        cpuPerc += cpuUsage[i];
+      }    
+      cpuPerc /= cpuUsage.size();
+    }
+    setProperty("cpuPerc", cpuPerc);
   }
 }
 
@@ -373,23 +445,28 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
 
   // current speed
   configFont(p, "Inter", 176, "Bold");
-  drawText(p, rect().center().x(), 210, speedStr);
+  QColor speedColor = is_braking ? redColor() : whiteColor();
+  drawTextWithColor(p, rect().center().x(), 210, speedStr, speedColor);
   configFont(p, "Inter", 66, "Regular");
   drawText(p, rect().center().x(), 290, speedUnit, 200);
 
-  // engage-ability icon
-  if (engageable) {
-    SubMaster &sm = *(uiState()->sm);
-    drawIcon(p, rect().right() - radius / 2 - bdr_s * 2, radius / 2 + int(bdr_s * 1.5),
-             sm["controlsState"].getControlsState().getExperimentalMode() ? experimental_img : engage_img, blackColor(166), 1.0);
-  }
+  // dev ui
+  QRect rc2(rect().right() - (bdr_s * 2), bdr_s * 1.5, 184, 202);
+  drawRightDevUi(p, rect().right() - 184 - bdr_s * 2, bdr_s * 2 + rc2.height());
+  drawRightDevUi2(p, rect().right() - 184 - bdr_s * 2 - 184, bdr_s * 2 + rc2.height());
+  drawRightDevUiBorder(p, rect().right() - 184 - bdr_s * 2 - 184, bdr_s * 2 + rc2.height());
 
-  // dm icon
-  if (!hideDM) {
-    int dm_icon_x = rightHandDM ? rect().right() -  radius / 2 - (bdr_s * 2) : radius / 2 + (bdr_s * 2);
-    drawIcon(p, dm_icon_x, rect().bottom() - footer_h / 2,
-             dm_img, blackColor(70), dmActive ? 1.0 : 0.2);
-  }
+  drawIconRotate(
+    p, 
+    rect().right() - (radius / 2) - (bdr_s * 2), 
+    radius / 2 + bdr_s, 
+    direction_img, 
+    blackColor(100), 
+    gpsOk ? 1.0 : 0.2, 
+    bearingDeg
+  );
+  drawTurnSignals(p);
+
   p.restore();
 }
 
@@ -405,6 +482,24 @@ void AnnotatedCameraWidget::drawText(QPainter &p, int x, int y, const QString &t
   p.drawText(real_rect.x(), real_rect.bottom(), text);
 }
 
+void AnnotatedCameraWidget::drawText2(QPainter &p, int x, int y, int flags, const QString &text, const QColor& color) {
+  QFontMetrics fm(p.font());
+  QRect rect = fm.boundingRect(text);
+  rect.adjust(-1, -1, 1, 1);
+  p.setPen(color);
+  p.drawText(QRect(x, y, rect.width()+1, rect.height()), flags, text);
+}
+
+void AnnotatedCameraWidget::drawTextWithColor(QPainter &p, int x, int y, const QString &text, QColor& color) {
+  QFontMetrics fm(p.font());
+  QRect init_rect = fm.boundingRect(text);
+  QRect real_rect = fm.boundingRect(init_rect, 0, text);
+  real_rect.moveCenter({x, y - real_rect.height() / 2});
+
+  p.setPen(color);
+  p.drawText(real_rect.x(), real_rect.bottom(), text);
+}
+
 void AnnotatedCameraWidget::drawIcon(QPainter &p, int x, int y, QPixmap &img, QBrush bg, float opacity) {
   p.setOpacity(1.0);  // bg dictates opacity of ellipse
   p.setPen(Qt::NoPen);
@@ -414,6 +509,19 @@ void AnnotatedCameraWidget::drawIcon(QPainter &p, int x, int y, QPixmap &img, QB
   p.drawPixmap(x - img.size().width() / 2, y - img.size().height() / 2, img);
 }
 
+void AnnotatedCameraWidget::drawIconRotate(QPainter &p, int x, int y, QPixmap &img, QBrush bg, float opacity, float angle) {
+  p.setPen(Qt::NoPen);
+  p.setBrush(bg);
+  p.drawEllipse(x - radius / 2, y - radius / 2, radius, radius);
+  p.setOpacity(opacity);
+  p.save();
+  p.translate(x, y);
+  p.rotate(-angle);
+  QRect r = img.rect();
+  r.moveCenter(QPoint(0,0));
+  p.drawPixmap(r, img);
+  p.restore();
+}
 
 void AnnotatedCameraWidget::initializeGL() {
   CameraWidget::initializeGL();
@@ -455,6 +563,10 @@ void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s) {
     painter.setBrush(QColor::fromRgbF(1.0, 1.0, 1.0, std::clamp<float>(scene.lane_line_probs[i], 0.0, 0.7)));
     painter.drawPolygon(scene.lane_line_vertices[i]);
   }
+
+  painter.setBrush(QColor::fromRgbF(1.0, 0.0, 0.0, 0.8));
+  if (left_bsm) painter.drawPolygon(scene.lane_barrier_vertices[0]);
+  if (right_bsm) painter.drawPolygon(scene.lane_barrier_vertices[1]);
 
   // road edges
   for (int i = 0; i < std::size(scene.road_edge_vertices); ++i) {
@@ -526,6 +638,15 @@ void AnnotatedCameraWidget::drawLead(QPainter &painter, const cereal::ModelDataV
   painter.setBrush(redColor(fillAlpha));
   painter.drawPolygon(chevron, std::size(chevron));
 
+  configFont(painter, "Inter", 50, "SemiBold");
+  char distance_str[16];
+  snprintf(distance_str, sizeof(distance_str), "%.1f km/h | %.1f m", lead_v, lead_d_rel);
+  QString distance_q_str = QString(distance_str);
+  QRect distance_str_rect = getTextRect(painter, Qt::AlignCenter, distance_q_str);
+  distance_str_rect.moveCenter(QPoint(x - 15, y - 15));
+  painter.setPen(whiteColor());
+  painter.drawText(distance_str_rect, Qt::AlignCenter, distance_q_str);
+
   painter.restore();
 }
 
@@ -590,18 +711,17 @@ void AnnotatedCameraWidget::paintGL() {
 
     drawLaneLines(painter, s);
 
-    if (s->scene.longitudinal_control) {
-      const auto leads = model.getLeadsV3();
-      if (leads[0].getProb() > .5) {
-        drawLead(painter, leads[0], s->scene.lead_vertices[0]);
-      }
-      if (leads[1].getProb() > .5 && (std::abs(leads[1].getX()[0] - leads[0].getX()[0]) > 3.0)) {
-        drawLead(painter, leads[1], s->scene.lead_vertices[1]);
-      }
+    const auto leads = model.getLeadsV3();
+    if (leads[0].getProb() > .5) {
+      drawLead(painter, leads[0], s->scene.lead_vertices[0]);
+    }
+    if (leads[1].getProb() > .5 && (std::abs(leads[1].getX()[0] - leads[0].getX()[0]) > 3.0)) {
+      drawLead(painter, leads[1], s->scene.lead_vertices[1]);
     }
   }
 
   drawHud(painter);
+  drawBottomIcons(painter);
 
   double cur_draw_t = millis_since_boot();
   double dt = cur_draw_t - prev_draw_t;
@@ -623,4 +743,323 @@ void AnnotatedCameraWidget::showEvent(QShowEvent *event) {
 
   ui_update_params(uiState());
   prev_draw_t = millis_since_boot();
+}
+
+// DEV UI
+void AnnotatedCameraWidget::drawBottomIcons(QPainter &p) {
+  p.save();
+
+  // tire pressure
+  {
+    const int w = 58;
+    const int h = 126;
+    const int x = 110;
+    const int y = height() - h - 85;
+
+    p.setOpacity(0.8);
+    p.drawPixmap(x, y, w, h, ic_tire_pressure);
+
+    configFont(p, "Inter", 38, "Bold");
+
+    QFontMetrics fm(p.font());
+    QRect rcFont = fm.boundingRect("9");
+
+    int center_x = x + 3;
+    int center_y = y + h/2;
+    const int marginX = (int)(rcFont.width() * 2.7f);
+    const int marginY = (int)((h/2 - rcFont.height()) * 0.7f);
+
+    drawText2(p, center_x-marginX, center_y-marginY-rcFont.height(), Qt::AlignRight, get_tpms_text(tpms_fl), get_tpms_color(tpms_fl));
+    drawText2(p, center_x+marginX, center_y-marginY-rcFont.height(), Qt::AlignLeft, get_tpms_text(tpms_fr), get_tpms_color(tpms_fr));
+    drawText2(p, center_x-marginX, center_y+marginY, Qt::AlignRight, get_tpms_text(tpms_rl), get_tpms_color(tpms_rl));
+    drawText2(p, center_x+marginX, center_y+marginY, Qt::AlignLeft, get_tpms_text(tpms_rr), get_tpms_color(tpms_rr));
+  }
+
+  p.restore();
+}
+
+void AnnotatedCameraWidget::drawRightDevUi(QPainter &p, int x, int y) {
+  int rh = 5;
+  int ry = y;
+
+  if (true) {
+    char val_str[16];
+    QColor valueColor = QColor(255, 255, 255, 255);
+    if (cpuTemp > 75) {
+      valueColor = QColor(255, 0, 0, 255);
+    } else if (cpuTemp > 70) {
+      valueColor = QColor(255, 188, 0, 255);
+    }
+    snprintf(val_str, sizeof(val_str), "%d", (int)cpuTemp);
+    rh += drawDevUiElementRight(p, x, ry, val_str, "TEMP", "°C", valueColor);
+    ry = y + rh;
+  }
+
+  if (true) {
+    char val_str[16];
+    QColor valueColor = QColor(255, 255, 255, 255);
+    snprintf(val_str, sizeof(val_str), "%.2f", torqueFriction);
+    rh += drawDevUiElementRight(p, x, ry, val_str, "FRIC", "", valueColor);
+    ry = y + rh;
+  }
+
+  // Add Real Steering Angle
+  // Unit: Degrees
+  if (true) {
+    char val_str[16];
+    QColor valueColor = QColor(0, 255, 0, 255);
+
+    // Red if large steering angle
+    // Orange if moderate steering angle
+    if (std::fabs(angleSteers) > 50) {
+      valueColor = QColor(255, 0, 0, 255);
+    } else if (std::fabs(angleSteers) > 30) {
+      valueColor = QColor(255, 188, 0, 255);
+    }
+
+    snprintf(val_str, sizeof(val_str), "%.1f%s%s", angleSteers , "°", "");
+
+    rh += drawDevUiElementRight(p, x, ry, val_str, "REAL STEER", "", valueColor);
+    ry = y + rh;
+  }
+
+  if (true) {
+    char val_str[16];
+    QColor valueColor = QColor(255, 255, 255, 255);
+
+    if (!gpsOk) {
+      snprintf(val_str, sizeof(val_str), "-");
+    } else {
+      snprintf(val_str, sizeof(val_str), "%.1f", std::fabs(gpsAccuracy));
+    }
+
+    rh += drawDevUiElementRight(p, x, ry, val_str, "GPS (acc)", "m", valueColor);
+    ry = y + rh;
+  }
+
+  // Add GPS Sat Count
+  if (true) {
+    char val_str[16];
+    QColor valueColor = QColor(255, 255, 255, 255);
+
+    if (gpsSatCount < 10) {
+      valueColor = QColor(255, 188, 0, 255);
+    }
+
+    snprintf(val_str, sizeof(val_str), "%d", gpsSatCount);
+
+    rh += drawDevUiElementRight(p, x, ry, val_str, "SAT", "count", valueColor);
+    ry = y + rh;
+  }
+
+  rh += 25;
+  p.setBrush(QColor(0, 0, 0, 0));
+  QRect ldu(x, y, 184, rh);
+  //p.drawRoundedRect(ldu, 20, 20);
+}
+
+void AnnotatedCameraWidget::drawRightDevUi2(QPainter &p, int x, int y) {
+  int rh = 5;
+  int ry = y;
+
+  if (true) {
+    char val_str[16];
+    QColor valueColor = QColor(255, 255, 255, 255);
+
+    snprintf(val_str, sizeof(val_str), "%d", cpuPerc);
+
+    rh += drawDevUiElementLeft(p, x, ry, val_str, "LOAD", "%", valueColor);
+    ry = y + rh;
+  }
+
+  if (true) {
+    char val_str[16];
+    QColor valueColor = QColor(255, 255, 255, 255);
+
+    snprintf(val_str, sizeof(val_str), "%.2f", torqueLatAccel); 
+    rh += drawDevUiElementLeft(p, x, ry, val_str, "LAT ACCEL", "", valueColor);
+    ry = y + rh;
+  }
+  
+  if (true) {
+    char val_str[16];
+    QColor valueColor = QColor(255, 255, 255, 255);
+
+    // Red if large steering angle
+    // Orange if moderate steering angle
+    if (std::fabs(angleSteers) > 50) {
+      valueColor = QColor(255, 0, 0, 255);
+    } else if (std::fabs(angleSteers) > 30) {
+      valueColor = QColor(255, 188, 0, 255);
+    }
+
+    snprintf(val_str, sizeof(val_str), "%.1f%s%s", steerAngleDesired, "°", "");
+
+    rh += drawDevUiElementLeft(p, x, ry, val_str, "DESIR STEER", "", valueColor);
+    ry = y + rh;
+  }
+
+  // Add Bearing Degree and Direction from Car (Compass)
+  // Unit: Meters
+  if (true) {
+    char val_str[16];
+    char dir_str[8];
+    QColor valueColor = QColor(255, 255, 255, 255);
+
+    if (bearingAccuracyDeg != 180.00) {
+      snprintf(val_str, sizeof(val_str), "%.0d%s%s", (int)bearingDeg, "°", "");
+      if (((bearingDeg >= 337.5) && (bearingDeg <= 360)) || ((bearingDeg >= 0) && (bearingDeg <= 22.5))) {
+        snprintf(dir_str, sizeof(dir_str), "N");
+      } else if ((bearingDeg > 22.5) && (bearingDeg < 67.5)) {
+        snprintf(dir_str, sizeof(dir_str), "NE");
+      } else if ((bearingDeg >= 67.5) && (bearingDeg <= 112.5)) {
+        snprintf(dir_str, sizeof(dir_str), "E");
+      } else if ((bearingDeg > 112.5) && (bearingDeg < 157.5)) {
+        snprintf(dir_str, sizeof(dir_str), "SE");
+      } else if ((bearingDeg >= 157.5) && (bearingDeg <= 202.5)) {
+        snprintf(dir_str, sizeof(dir_str), "S");
+      } else if ((bearingDeg > 202.5) && (bearingDeg < 247.5)) {
+        snprintf(dir_str, sizeof(dir_str), "SW");
+      } else if ((bearingDeg >= 247.5) && (bearingDeg <= 292.5)) {
+        snprintf(dir_str, sizeof(dir_str), "W");
+      } else if ((bearingDeg > 292.5) && (bearingDeg < 337.5)) {
+        snprintf(dir_str, sizeof(dir_str), "NW");
+      }
+    } else {
+      snprintf(dir_str, sizeof(dir_str), "OFF");
+      snprintf(val_str, sizeof(val_str), "-");
+    }
+
+    rh += drawDevUiElementLeft(p, x, ry, dir_str, val_str, "", valueColor);
+    ry = y + rh;
+  }
+
+  // Add Altitude of Current Location
+  // Unit: Meters
+  if (true) {
+    char val_str[16];
+    QColor valueColor = QColor(255, 255, 255, 255);
+
+    if (gpsOk) {
+      snprintf(val_str, sizeof(val_str), "%.1f", altitude);
+    } else {
+      snprintf(val_str, sizeof(val_str), "-");
+    }
+
+    rh += drawDevUiElementLeft(p, x, ry, val_str, "ALTITUDE", "m", valueColor);
+    ry = y + rh;
+  }
+
+  rh += 25;
+  p.setBrush(QColor(0, 0, 0, 0));
+  QRect ldu(x, y, 184, rh);
+  //p.drawRoundedRect(ldu, 20, 20);
+}
+
+void AnnotatedCameraWidget::drawRightDevUiBorder(QPainter &p, int x, int y) {
+  int rh = 580;
+  int rw = 184;
+  p.setPen(QPen(QColor(0xff, 0xff, 0xff, 100), 6));
+  p.setBrush(QColor(0, 0, 0, 0));
+  rw *= 2;
+  QRect ldu(x, y, rw, rh);
+  p.drawRoundedRect(ldu, 20, 20);
+}
+
+int AnnotatedCameraWidget::drawDevUiElementRight(QPainter &p, int x, int y, const char* value, const char* label, const char* units, QColor &color) {
+  configFont(p, "Inter", 30 * 2, "SemiBold");
+  drawTextWithColor(p, x + 92, y + 80, QString(value), color);
+
+  configFont(p, "Inter", 28, "Regular");
+  drawText(p, x + 92, y + 80 + 42, QString(label), 255);
+
+  if (strlen(units) > 0) {
+    p.save();
+    p.translate(x + 54 + 30 - 3 + 92, y + 37 + 25);
+    p.rotate(-90);
+    drawText(p, 0, 0, QString(units), 255);
+    p.restore();
+  }
+
+  return 110;
+}
+
+int AnnotatedCameraWidget::drawDevUiElementLeft(QPainter &p, int x, int y, const char* value, const char* label, const char* units, QColor &color) {
+  configFont(p, "Inter", 30 * 2, "SemiBold");
+  drawTextWithColor(p, x + 92, y + 80, QString(value), color);
+
+  configFont(p, "Inter", 28, "Regular");
+  drawText(p, x + 92, y + 80 + 42, QString(label), 255);
+
+  if (strlen(units) > 0) {
+    p.save();
+    p.translate(x + 11, y + 37 + 25);
+    p.rotate(90);
+    drawText(p, 0, 0, QString(units), 255);
+    p.restore();
+  }
+
+  return 110;
+}
+
+void AnnotatedCameraWidget::drawTurnSignals(QPainter &p) {
+  p.save();
+  // turnsignal
+  static int blink_index = 0;
+  static int blink_wait = 0;
+  static double prev_ts = 0.0;
+
+  if (blink_wait > 0) {
+    blink_wait--;
+    blink_index = 0;
+  } else {
+    const float img_alpha = 1.0f;
+    const int center_x = width() / 2;
+    const int w = 300;
+    const int h = 300;
+    const int y = (height() - h) / 2;
+    const int draw_count = 8;
+
+    int x = center_x;
+    if (left_blinker) {
+      for (int i = 0; i < draw_count; i++) {
+        float alpha = img_alpha;
+        int d = std::abs(blink_index - i);
+        if (d > 0)
+          alpha /= d * 2;
+        p.setOpacity(alpha);
+        p.drawPixmap(x - w, y, w, h, turnsignal_l_img);
+        x -= w * 0.6;
+      }
+    }
+
+    x = center_x;
+    if (right_blinker) {
+      for (int i = 0; i < draw_count; i++) {
+        float alpha = img_alpha;
+        int d = std::abs(blink_index - i);
+        if (d > 0)
+          alpha /= d * 2;
+        p.setOpacity(alpha);
+        p.drawPixmap(x, y, w, h, turnsignal_r_img);
+        x += w * 0.6;
+      }
+    }
+
+    if (left_blinker || right_blinker) {
+      double now = millis_since_boot();
+      if (now - prev_ts > 900 / UI_FREQ) {
+        prev_ts = now;
+        blink_index++;
+      }
+      if (blink_index >= draw_count) {
+        blink_index = draw_count - 1;
+        blink_wait = UI_FREQ / 4;
+      }
+    } else {
+      blink_index = 0;
+    }
+  }
+  p.setOpacity(1.);
+  p.restore();
 }
