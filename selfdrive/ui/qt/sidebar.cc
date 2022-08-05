@@ -70,12 +70,21 @@ void Sidebar::updateState(const UIState &s) {
   }
   setProperty("connectStatus", QVariant::fromValue(connectStatus));
 
-  ItemStatus tempStatus = {{tr("TEMP"), tr("HIGH")}, danger_color};
+  auto cpuList = deviceState.getCpuTempC();
+  float cpuTemp = 0;
+  if (cpuList.size() > 0) {
+    for(int i = 0; i < cpuList.size(); i++) {
+      cpuTemp += cpuList[i];
+    }    
+    cpuTemp /= cpuList.size();
+  }
+
+  ItemStatus tempStatus = {{tr("CPU"), tr("HIGH")}, danger_color};
   auto ts = deviceState.getThermalStatus();
   if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
-    tempStatus = {{tr("TEMP"), tr("GOOD")}, good_color};
+    tempStatus = {{tr("CPU"), QString("%.1f°").arg(cpuTemp)}, good_color};
   } else if (ts == cereal::DeviceState::ThermalStatus::YELLOW) {
-    tempStatus = {{tr("TEMP"), tr("OK")}, warning_color};
+    tempStatus = {{tr("CPU"), QString("%.1f°").arg(cpuTemp)}, warning_color};
   }
   setProperty("tempStatus", QVariant::fromValue(tempStatus));
 
