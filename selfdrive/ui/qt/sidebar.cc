@@ -88,28 +88,39 @@ void Sidebar::updateState(const UIState &s) {
   setProperty("netStrength", strength > 0 ? strength + 1 : 0);
 
   ItemStatus connectStatus;
-  auto last_ping = deviceState.getLastAthenaPingTime();
-  if (last_ping == 0) {
-    connectStatus = ItemStatus{{tr("CONNECT"), tr("OFFLINE")}, warning_color};
-  } else {
-    connectStatus = nanos_since_boot() - last_ping < 80e9 ? ItemStatus{{tr("CONNECT"), tr("ONLINE")}, good_color} : ItemStatus{{tr("CONNECT"), tr("ERROR")}, danger_color};
-  }
+  auto memoryUsagePercent = deviceState.getMemoryUsagePercent();
+  QString memoryUsagePercentString;
+  memoryUsagePercentString.sprintf("%d%%", memoryUsagePercent);
+  
+  connectStatus = ItemStatus{{tr("MEM"), memoryUsagePercentString}, good_color};
   setProperty("connectStatus", QVariant::fromValue(connectStatus));
 
-  ItemStatus tempStatus = {{tr("TEMP"), tr("HIGH")}, danger_color};
+  auto cpuList = deviceState.getCpuTempC();
+  float cpuTemp = 0;
+  if (cpuList.size() > 0) {
+    for(int i = 0; i < cpuList.size(); i++) {
+      cpuTemp += cpuList[i];
+    }    
+    cpuTemp /= cpuList.size();
+  }
+
+  ItemStatus tempStatus = {{tr("CPU"), tr("HIGH")}, danger_color};
   auto ts = deviceState.getThermalStatus();
   if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
-    tempStatus = {{tr("TEMP"), tr("GOOD")}, good_color};
+    tempStatus = {{tr("CPU"), QString("%.1f°").arg(cpuTemp)}, good_color};
   } else if (ts == cereal::DeviceState::ThermalStatus::YELLOW) {
-    tempStatus = {{tr("TEMP"), tr("OK")}, warning_color};
+    tempStatus = {{tr("CPU"), QString("%.1f°").arg(cpuTemp)}, warning_color};
   }
   setProperty("tempStatus", QVariant::fromValue(tempStatus));
 
   ItemStatus pandaStatus = {{tr("VEHICLE"), tr("ONLINE")}, good_color};
   if (s.scene.pandaType == cereal::PandaState::PandaType::UNKNOWN) {
     pandaStatus = {{tr("NO"), tr("PANDA")}, danger_color};
-  } else if (s.scene.started && !sm["liveLocationKalman"].getLiveLocationKalman().getGpsOK()) {
-    pandaStatus = {{tr("GPS"), tr("SEARCH")}, warning_color};
+  } else if (s.scene.started) {
+    auto cpuUsage = deviceState.getCpuUsagePercent();
+    QString cpuUsageStr;
+    cpuUsageStr.sprintf("%d%%", cpuUsage[0]);
+    pandaStatus = {{tr("LOAD"), cpuUsageStr}, good_color};
   }
   setProperty("pandaStatus", QVariant::fromValue(pandaStatus));
 }
