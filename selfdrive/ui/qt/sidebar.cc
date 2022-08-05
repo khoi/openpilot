@@ -33,7 +33,7 @@ void Sidebar::drawMetric(QPainter &p, const QPair<QString, QString> &label, QCol
 }
 
 Sidebar::Sidebar(QWidget *parent) : QFrame(parent) {
-  home_img = loadPixmap("../assets/images/button_home.png", {180, 180});
+  home_img = loadPixmap("../assets/img_spinner_comma.png", {180, 180});
   settings_img = loadPixmap("../assets/images/button_settings.png", settings_btn.size(), Qt::IgnoreAspectRatio);
 
   connect(this, &Sidebar::valueChanged, [=] { update(); });
@@ -62,12 +62,8 @@ void Sidebar::updateState(const UIState &s) {
   setProperty("netStrength", strength > 0 ? strength + 1 : 0);
 
   ItemStatus connectStatus;
-  auto last_ping = deviceState.getLastAthenaPingTime();
-  if (last_ping == 0) {
-    connectStatus = ItemStatus{{tr("CONNECT"), tr("OFFLINE")}, warning_color};
-  } else {
-    connectStatus = nanos_since_boot() - last_ping < 80e9 ? ItemStatus{{tr("CONNECT"), tr("ONLINE")}, good_color} : ItemStatus{{tr("CONNECT"), tr("ERROR")}, danger_color};
-  }
+  auto ambientTempC = deviceState.getAmbientTempC()
+  connectStatus = ItemStatus{{tr("TEMP"), QString("%.1f°").arg(ambientTempC)}, good_color}
   setProperty("connectStatus", QVariant::fromValue(connectStatus));
 
   auto cpuList = deviceState.getCpuTempC();
