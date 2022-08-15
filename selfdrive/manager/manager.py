@@ -42,7 +42,6 @@ def manager_init() -> None:
     ("HasAcceptedTerms", terms_version),
     ("OpenpilotEnabledToggle", "1"),
     ("IsMetric", "1"),
-    ("UploadRaw", "1"),
   ]
   if not PC:
     default_params.append(("LastUpdateTime", datetime.datetime.utcnow().isoformat().encode('utf8')))
