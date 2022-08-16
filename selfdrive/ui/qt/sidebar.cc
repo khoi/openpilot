@@ -62,11 +62,11 @@ void Sidebar::updateState(const UIState &s) {
   setProperty("netStrength", strength > 0 ? strength + 1 : 0);
 
   ItemStatus connectStatus;
-  auto ambientTempC = deviceState.getAmbientTempC();
-  QString ambientTempCString;
-  ambientTempCString.sprintf("%.1f°", ambientTempC);
+  auto memoryUsagePercent = deviceState.getMemoryUsagePercent();
+  QString memoryUsagePercentString;
+  memoryUsagePercentString.sprintf("%d%%", memoryUsagePercent);
   
-  connectStatus = ItemStatus{{tr("TEMP"), ambientTempCString}, good_color};
+  connectStatus = ItemStatus{{tr("MEM"), memoryUsagePercentString}, good_color};
   setProperty("connectStatus", QVariant::fromValue(connectStatus));
 
   auto cpuList = deviceState.getCpuTempC();
@@ -97,7 +97,7 @@ void Sidebar::updateState(const UIState &s) {
     auto fanSpeedPercentDesired = deviceState.getFanSpeedPercentDesired();
     QString fanSpeedPercentDesiredStr;
     fanSpeedPercentDesiredStr.sprintf("%d%%", fanSpeedPercentDesired);
-    pandaStatus = {{tr("GPS"), fanSpeedPercentDesiredStr}, good_color};
+    pandaStatus = {{tr("FAN"), fanSpeedPercentDesiredStr}, good_color};
   }
   setProperty("pandaStatus", QVariant::fromValue(pandaStatus));
 }
