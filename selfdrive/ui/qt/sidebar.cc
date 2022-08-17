@@ -96,7 +96,7 @@ void Sidebar::updateState(const UIState &s) {
   } else if (s.scene.started) {
     auto gpuUsage = deviceState.getGpuUsagePercent();
     QString gpuUsageStr;
-    gpuUsageStr.sprintf("%d%%", gpuUsage[0]);
+    gpuUsageStr.sprintf("%d%%", gpuUsage);
     pandaStatus = {{tr("GPU"), gpuUsageStr}, good_color};
   }
   setProperty("pandaStatus", QVariant::fromValue(pandaStatus));
