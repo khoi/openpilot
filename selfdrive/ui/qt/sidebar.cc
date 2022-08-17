@@ -94,10 +94,10 @@ void Sidebar::updateState(const UIState &s) {
   if (s.scene.pandaType == cereal::PandaState::PandaType::UNKNOWN) {
     pandaStatus = {{tr("NO"), tr("PANDA")}, danger_color};
   } else if (s.scene.started) {
-    auto cpuUsage = deviceState.getCpuUsagePercent();
-    QString cpuUsageStr;
-    cpuUsageStr.sprintf("%d%%", cpuUsage[0]);
-    pandaStatus = {{tr("LOAD"), cpuUsageStr}, good_color};
+    auto gpuUsage = deviceState.getGpuUsagePercent();
+    QString gpuUsageStr;
+    gpuUsageStr.sprintf("%d%%", gpuUsage[0]);
+    pandaStatus = {{tr("GPU"), gpuUsageStr}, good_color};
   }
   setProperty("pandaStatus", QVariant::fromValue(pandaStatus));
 }
