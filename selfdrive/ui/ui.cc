@@ -177,8 +177,8 @@ static void update_state(UIState *s) {
       }
     }
   }
-  if (sm.updated("wideRoadCameraState")) {
-    auto camera_state = sm["wideRoadCameraState"].getWideRoadCameraState();
+  if (sm.updated("driverCameraState")) {
+    auto camera_state = sm["driverCameraState"].getDriverCameraState();
 
     float max_lines = 1618;
     float max_gain = 10.0;
@@ -229,7 +229,7 @@ UIState::UIState(QObject *parent) : QObject(parent) {
   sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
     "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "roadCameraState",
     "pandaStates", "carParams", "driverMonitoringState", "sensorEvents", "carState", "liveLocationKalman",
-    "wideRoadCameraState", "managerState", "navInstruction", "navRoute", "gnssMeasurements",
+    "driverCameraState", "managerState", "navInstruction", "navRoute", "gnssMeasurements",
     "gpsLocationExternal", "ubloxGnss"
   });
 
