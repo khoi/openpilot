@@ -46,9 +46,15 @@ class NvgWindow : public CameraViewWidget {
   Q_PROPERTY(float tpms_fr MEMBER tpms_fr);
   Q_PROPERTY(float tpms_rl MEMBER tpms_rl);
   Q_PROPERTY(float tpms_rr MEMBER tpms_rr);
-  Q_PROPERTY(float gpsAccuracy MEMBER gpsAccuracy)
-  Q_PROPERTY(int gpsSatCount MEMBER gpsSatCount)
-
+  Q_PROPERTY(float gpsAccuracy MEMBER gpsAccuracy);
+  Q_PROPERTY(int gpsSatCount MEMBER gpsSatCount);
+  Q_PROPERTY(int lead_status MEMBER lead_status);
+  Q_PROPERTY(float lead_d_rel MEMBER lead_d_rel);
+  Q_PROPERTY(float lead_v_rel MEMBER lead_v_rel);
+  Q_PROPERTY(float angleSteers MEMBER angleSteers);
+  Q_PROPERTY(float steerAngleDesired MEMBER steerAngleDesired);
+  Q_PROPERTY(int engineRPM MEMBER engineRPM);
+  
 public:
   explicit NvgWindow(VisionStreamType type, QWidget* parent = 0);
   void updateState(const UIState &s);
@@ -57,6 +63,7 @@ private:
   void drawIcon(QPainter &p, int x, int y, QPixmap &img, QBrush bg, float opacity);
   void drawText(QPainter &p, int x, int y, const QString &text, int alpha = 255);
   void drawText2(QPainter &p, int x, int y, int flags, const QString &text, const QColor& color);
+  int devUiDrawElement(QPainter &p, int x, int y, const char* value, const char* label, const char* units, QColor &color);
   void drawTextWithColor(QPainter &p, int x, int y, const QString &text, QColor& color);
 
   QPixmap engage_img;
@@ -66,7 +73,7 @@ private:
   float speed;
   QString speedUnit;
   float setSpeed;
-float speedLimit;
+  float speedLimit;
   bool is_cruise_set = false;
   bool is_metric = false;
   bool engageable = false;
@@ -84,6 +91,12 @@ float speedLimit;
   float tpms_rr = 0;
   float gpsAccuracy = 0;
   int gpsSatCount = 0;
+  int lead_status;
+  float lead_d_rel = 0;
+  float lead_v_rel = 0;
+  float angleSteers = 0;
+  float steerAngleDesired = 0;
+  int engineRPM = 0;
 
 protected:
   void paintGL() override;
@@ -109,6 +122,7 @@ protected:
 
   void drawBottomIcons(QPainter &p);
   void drawGpsStatus(QPainter &p);
+  void drawLeftDevUI(QPainter &p, int x, int y);
 };
 
 // container for all onroad widgets
