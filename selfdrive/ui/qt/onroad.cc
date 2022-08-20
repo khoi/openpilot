@@ -575,6 +575,7 @@ void NvgWindow::paintGL() {
 
   drawHud(painter);
   drawBottomIcons(painter);
+  drawLeftDevUI(painter);
 
   double cur_draw_t = millis_since_boot();
   double dt = cur_draw_t - prev_draw_t;
