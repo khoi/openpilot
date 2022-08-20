@@ -696,7 +696,9 @@ int NvgWindow::devUiDrawElement(QPainter &p, int x, int y, const char* value, co
   return 110;
 }
 
-void NvgWindow::drawLeftDevUI(QPainter &p, int x, int y) {
+void NvgWindow::drawLeftDevUI(QPainter &p) {
+  int x = width() + (bdr_s * 1.5);
+  int y = radius * 2.5 + (bdr_s * 1.5);
   int rh = 5;
   int ry = y;
 

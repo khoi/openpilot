@@ -122,7 +122,7 @@ protected:
 
   void drawBottomIcons(QPainter &p);
   void drawGpsStatus(QPainter &p);
-  void drawLeftDevUI(QPainter &p, int x, int y);
+  void drawLeftDevUI(QPainter &p);
 };
 
 // container for all onroad widgets
