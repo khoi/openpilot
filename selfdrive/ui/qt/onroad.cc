@@ -436,7 +436,7 @@ void NvgWindow::drawHud(QPainter &p) {
   drawIconRotate(
     p, 
     rect().right() - (radius / 2) - (bdr_s * 2), 
-    radius / 2 + bdr_s * 2, 
+    radius / 2 + bdr_s, 
     direction_img, 
     blackColor(100), 
     gpsOk ? 1.0 : 0.2, 
