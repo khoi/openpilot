@@ -7,7 +7,7 @@
 #include <QVariantAnimation>
 #include <QWidget>
 
-constexpr int spinner_fps = 30;
+constexpr int spinner_fps = 60;
 constexpr QSize spinner_size = QSize(360, 360);
 
 class TrackWidget : public QWidget  {
