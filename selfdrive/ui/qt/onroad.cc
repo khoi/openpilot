@@ -299,6 +299,9 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
       cpuPerc /= cpuUsage.size();
     }
     setProperty("cpuPerc", cpuPerc);
+
+    auto fanSpeedDesired = deviceState.getFanSpeedPercentDesired();
+    setProperty("fanSpeed", fanSpeedDesired);
   }
 }
 
@@ -791,7 +794,11 @@ void AnnotatedCameraWidget::drawRightDevUi(QPainter &p, int x, int y) {
       valueColor = QColor(255, 188, 0, 255);
     }
     snprintf(val_str, sizeof(val_str), "%d", (int)cpuTemp);
-    rh += drawDevUiElementRight(p, x, ry, val_str, "TEMP", "°C", valueColor);
+
+    char val_str2[16];
+    snprintf(val_str2, sizeof(val_str2), "%d%%", fanSpeed);
+
+    rh += drawDevUiElementRight(p, x, ry, val_str, val_str2, "°C", valueColor);
     ry = y + rh;
   }
 

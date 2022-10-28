@@ -60,6 +60,7 @@ class AnnotatedCameraWidget : public CameraWidget {
   Q_PROPERTY(float torqueFriction MEMBER torqueFriction);
   Q_PROPERTY(float cpuPerc MEMBER cpuPerc);
   Q_PROPERTY(float cpuTemp MEMBER cpuTemp);
+  Q_PROPERTY(float fanSpeed MEMBER fanSpeed);
   Q_PROPERTY(bool left_bsm MEMBER left_bsm);
   Q_PROPERTY(bool right_bsm MEMBER right_bsm);
   Q_PROPERTY(bool left_blinker MEMBER left_blinker);
@@ -115,6 +116,7 @@ private:
   float torqueFriction = 0;
   int cpuPerc = 0;
   float cpuTemp = 0;
+  int fanSpeed = 0;
   bool left_bsm = false;
   bool right_bsm = false;
   bool left_blinker = false;
