@@ -59,6 +59,7 @@ class CarController:
   def update(self, CC, CS, now_nanos):
     actuators = CC.actuators
     hud_control = CC.hudControl
+    temporarily_disable_lat = CC.cruiseControl.override
 
     # steering torque
     new_steer = int(round(actuators.steer * self.params.STEER_MAX))
@@ -182,7 +183,7 @@ class CarController:
 
       # 20 Hz LFA MFA message
       if self.frame % 5 == 0 and self.CP.flags & HyundaiFlags.SEND_LFA.value:
-        can_sends.append(hyundaican.create_lfahda_mfc(self.packer, CC.enabled))
+        can_sends.append(hyundaican.create_lfahda_mfc(self.packer, CC.enabled, temporarily_disable_lat))
 
       # 5 Hz ACC options
       if self.frame % 20 == 0 and self.CP.openpilotLongitudinalControl:

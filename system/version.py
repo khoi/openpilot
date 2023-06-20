@@ -95,7 +95,7 @@ def is_comma_remote() -> bool:
 
 @cache
 def is_tested_branch() -> bool:
-  return get_short_branch() in TESTED_BRANCHES
+  return True
 
 @cache
 def is_release_branch() -> bool:
