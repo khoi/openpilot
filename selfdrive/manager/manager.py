@@ -146,6 +146,7 @@ def manager_thread() -> None:
 
   write_onroad_params(False, params)
   ensure_running(managed_processes.values(), False, params=params, CP=sm['carParams'], not_run=ignore)
+  
 
   started_prev = False
 
@@ -169,9 +170,12 @@ def manager_thread() -> None:
 
     running = ' '.join("%s%s\u001b[0m" % ("\u001b[32m" if p.proc.is_alive() else "\u001b[31m", p.name)
                        for p in managed_processes.values() if p.proc)
-    print(running)
-    cloudlog.debug(running)
 
+    # not running process
+    not_running = [p for p in managed_processes.values() if p.proc and not p.proc.is_alive()]
+    if not_running:
+      print(running)
+    
     # send managerState
     msg = messaging.new_message('managerState')
     msg.managerState.processes = [p.get_process_state_msg() for p in managed_processes.values()]
