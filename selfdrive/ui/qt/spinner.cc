@@ -19,8 +19,7 @@ TrackWidget::TrackWidget(QWidget *parent) : QWidget(parent) {
   setFixedSize(spinner_size);
 
   // pre-compute all the track imgs. make this a gif instead?
-  QPixmap comma_img = loadPixmap("../assets/img_spinner_comma.png", spinner_size);
-  QPixmap track_img = loadPixmap("../assets/img_spinner_track.png", spinner_size);
+  QPixmap track_img = loadPixmap("../assets/img_spinner_comma.png", spinner_size);
 
   QTransform transform(1, 0, 0, 1, width() / 2, height() / 2);
   QPixmap pm(spinner_size);
@@ -29,7 +28,6 @@ TrackWidget::TrackWidget(QWidget *parent) : QWidget(parent) {
   for (int i = 0; i < track_imgs.size(); ++i) {
     p.resetTransform();
     p.fillRect(0, 0, spinner_size.width(), spinner_size.height(), Qt::black);
-    p.drawPixmap(0, 0, comma_img);
     p.setTransform(transform.rotate(360 / spinner_fps));
     p.drawPixmap(-width() / 2, -height() / 2, track_img);
     track_imgs[i] = pm.copy();

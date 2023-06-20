@@ -7,6 +7,7 @@ import sys
 import traceback
 from typing import List, Tuple, Union
 
+from cereal import log
 import cereal.messaging as messaging
 import selfdrive.sentry as sentry
 from common.basedir import BASEDIR
@@ -14,13 +15,14 @@ from common.params import Params, ParamKeyType
 from common.text_window import TextWindow
 from selfdrive.boardd.set_time import set_time
 from system.hardware import HARDWARE, PC
-from selfdrive.manager.helpers import unblock_stdout
+from selfdrive.manager.helpers import unblock_stdout, write_onroad_params
 from selfdrive.manager.process import ensure_running
 from selfdrive.manager.process_config import managed_processes
 from selfdrive.athena.registration import register, UNREGISTERED_DONGLE_ID
 from system.swaglog import cloudlog, add_file_handler
 from system.version import is_dirty, get_commit, get_version, get_origin, get_short_branch, \
-                              terms_version, training_version, is_tested_branch, is_release_branch
+                           get_normalized_origin, terms_version, training_version, \
+                           is_tested_branch, is_release_branch
 
 
 
@@ -29,18 +31,25 @@ def manager_init() -> None:
   set_time(cloudlog)
 
   # save boot log
-  subprocess.call("./bootlog", cwd=os.path.join(BASEDIR, "selfdrive/loggerd"))
+  subprocess.call("./bootlog", cwd=os.path.join(BASEDIR, "system/loggerd"))
 
   params = Params()
   params.clear_all(ParamKeyType.CLEAR_ON_MANAGER_START)
+  params.clear_all(ParamKeyType.CLEAR_ON_ONROAD_TRANSITION)
+  params.clear_all(ParamKeyType.CLEAR_ON_OFFROAD_TRANSITION)
 
   default_params: List[Tuple[str, Union[str, bytes]]] = [
-    ("CompletedTrainingVersion", "0"),
-    ("DisengageOnAccelerator", "1"),
-    ("GsmMetered", "1"),
-    ("HasAcceptedTerms", "0"),
+    ("CompletedTrainingVersion", training_version),
+    ("GsmMetered", "0"),
+    ("DisengageOnAccelerator", "0"),
+    ("HasAcceptedTerms", terms_version),
     ("LanguageSetting", "main_en"),
     ("OpenpilotEnabledToggle", "1"),
+    ("LongitudinalPersonality", str(log.LongitudinalPersonality.standard)),
+    ("IsMetric", "1"),
+    ("SshEnabled", "1"),
+    ("GithubUsername", "khoi"),
+    ("GithubSshKeys", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDc6u+5Q61UTewGiHMvC7oee282s7EyqZ6HHGfZsigyfkqIiUKd0K9GTuCNIF57qhzWEDkvle3I+C6RDux/l1wkzv179zf77hkLYSo+kR0SJm5cufQbM600sOPd5ZzLrmQN7Zg0YFMUOjBrUdm0/Z6jbOiOytgbcrR74QDBhxUbPSpos/kWBnuH5Ur1qy/vbBYfBUbaPBk2xe2OGcW5D+Hnozl7sz8UeSvMSjLL4wM42QbLwxpYDaGkCXEJQ9YKYmRely7XNLpIoQxVGa6szFi/CAfzD9FoLw0RhErj5YxtI9PoHl9F774Y/6RfsZxsr+/fgoAzAoQqDDHq16jL1Q+g52oqspSJv1FZBA2+xxg7hYPIiCeeKOlWDRy5USDtJN9gFa9KgG8t625kaDsxy74CpFVHhtXN/SPS9NrYIvuR4y86Bcx/02fob+bzT3pb383P1Shch+ZNP+62kIWAvJ3xrRFEspl6K/93Rg0CX9oQuhfdWaZ+Tmn/u0fOfCup6fa7yxmhe4BpdapMUqzVphoC+xqjpvxwQptLqkoMp2JyiXl30+6eaUvUCHpojEAlYWDzrwZ9ehNAKNEoZAak1PVaqYnEVpL8KSlDNpIhoI7qi/qcOH3H8bIAJx85rJIkRg0Te7ADozHx7y/rZMhYTp1cgA4paKcPf7aV8u5Ti/oijw=="),
   ]
   if not PC:
     default_params.append(("LastUpdateTime", datetime.datetime.utcnow().isoformat().encode('utf8')))
@@ -92,7 +101,12 @@ def manager_init() -> None:
 
   # init logging
   sentry.init(sentry.SentryProject.SELFDRIVE)
-  cloudlog.bind_global(dongle_id=dongle_id, version=get_version(), dirty=is_dirty(),
+  cloudlog.bind_global(dongle_id=dongle_id,
+                       version=get_version(),
+                       origin=get_normalized_origin(),
+                       branch=get_short_branch(),
+                       commit=get_commit(),
+                       dirty=is_dirty(),
                        device=HARDWARE.get_device_type())
 
 
@@ -130,19 +144,38 @@ def manager_thread() -> None:
   sm = messaging.SubMaster(['deviceState', 'carParams'], poll=['deviceState'])
   pm = messaging.PubMaster(['managerState'])
 
+  write_onroad_params(False, params)
   ensure_running(managed_processes.values(), False, params=params, CP=sm['carParams'], not_run=ignore)
+  
+
+  started_prev = False
 
   while True:
     sm.update()
 
     started = sm['deviceState'].started
+
+    if started and not started_prev:
+      params.clear_all(ParamKeyType.CLEAR_ON_ONROAD_TRANSITION)
+    elif not started and started_prev:
+      params.clear_all(ParamKeyType.CLEAR_ON_OFFROAD_TRANSITION)
+
+    # update onroad params, which drives boardd's safety setter thread
+    if started != started_prev:
+      write_onroad_params(started, params)
+
+    started_prev = started
+
     ensure_running(managed_processes.values(), started, params=params, CP=sm['carParams'], not_run=ignore)
 
     running = ' '.join("%s%s\u001b[0m" % ("\u001b[32m" if p.proc.is_alive() else "\u001b[31m", p.name)
                        for p in managed_processes.values() if p.proc)
-    print(running)
-    cloudlog.debug(running)
 
+    # not running process
+    not_running = [p for p in managed_processes.values() if p.proc and not p.proc.is_alive()]
+    if not_running:
+      print(running)
+    
     # send managerState
     msg = messaging.new_message('managerState')
     msg.managerState.processes = [p.get_process_state_msg() for p in managed_processes.values()]
@@ -153,7 +186,7 @@ def manager_thread() -> None:
     for param in ("DoUninstall", "DoShutdown", "DoReboot"):
       if params.get_bool(param):
         shutdown = True
-        params.put("LastManagerExitReason", param)
+        params.put("LastManagerExitReason", f"{param} {datetime.datetime.now()}")
         cloudlog.warning(f"Shutting down manager - {param} set")
 
     if shutdown:

@@ -6,11 +6,12 @@ import random
 from PIL import Image, ImageDraw, ImageFont
 
 from cereal import log, car
+from cereal.messaging import SubMaster
 from common.basedir import BASEDIR
 from common.params import Params
 from selfdrive.controls.lib.events import Alert, EVENTS, ET
 from selfdrive.controls.lib.alertmanager import set_offroad_alert
-from selfdrive.test.process_replay.process_replay import FakeSubMaster, CONFIGS
+from selfdrive.test.process_replay.process_replay import CONFIGS
 
 AlertSize = log.ControlsState.AlertSize
 
@@ -34,7 +35,7 @@ class TestAlerts(unittest.TestCase):
       cls.CS = car.CarState.new_message()
       cls.CP = car.CarParams.new_message()
       cfg = [c for c in CONFIGS if c.proc_name == 'controlsd'][0]
-      cls.sm = FakeSubMaster(cfg.pub_sub.keys())
+      cls.sm = SubMaster(cfg.pubs)
 
   def test_events_defined(self):
     # Ensure all events in capnp schema are defined in events.py
@@ -75,9 +76,10 @@ class TestAlerts(unittest.TestCase):
           break
 
         font = fonts[alert.alert_size][i]
-        w, _ = draw.textsize(txt, font)
+        left, _, right, _ = draw.textbbox((0, 0), txt, font)
+        width = right - left
         msg = f"type: {alert.alert_type} msg: {txt}"
-        self.assertLessEqual(w, max_text_width, msg=msg)
+        self.assertLessEqual(width, max_text_width, msg=msg)
 
   def test_alert_sanity_check(self):
     for event_types in EVENTS.values():
