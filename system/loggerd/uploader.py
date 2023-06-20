@@ -4,12 +4,11 @@ import io
 import json
 import os
 import random
-import requests
 import threading
 import time
 import traceback
 from pathlib import Path
-from typing import BinaryIO, Iterator, List, Optional, Tuple, Union
+from subprocess import STDOUT, check_output
 
 from cereal import log
 import cereal.messaging as messaging
@@ -20,35 +19,21 @@ from system.hardware import TICI
 from system.loggerd.xattr_cache import getxattr, setxattr
 from system.loggerd.config import ROOT
 from system.swaglog import cloudlog
+from datetime import datetime
 
+NAS_IP="10.10.10.90"
 NetworkType = log.DeviceState.NetworkType
 UPLOAD_ATTR_NAME = 'user.upload'
 UPLOAD_ATTR_VALUE = b'1'
-
-UPLOAD_QLOG_QCAM_MAX_SIZE = 100 * 1e6  # MB
 
 allow_sleep = bool(os.getenv("UPLOADER_SLEEP", "1"))
 force_wifi = os.getenv("FORCEWIFI") is not None
 fake_upload = os.getenv("FAKEUPLOAD") is not None
 
-
-class FakeRequest:
-  def __init__(self):
-    self.headers = {"Content-Length": "0"}
-
-
-class FakeResponse:
-  def __init__(self):
-    self.status_code = 200
-    self.request = FakeRequest()
-
-
-UploadResponse = Union[requests.Response, FakeResponse]
-
-def get_directory_sort(d: str) -> List[str]:
+def get_directory_sort(d):
   return list(map(lambda s: s.rjust(10, '0'), d.rsplit('--', 1)))
 
-def listdir_by_creation(d: str) -> List[str]:
+def listdir_by_creation(d):
   try:
     paths = os.listdir(d)
     paths = sorted(paths, key=get_directory_sort)
@@ -57,7 +42,7 @@ def listdir_by_creation(d: str) -> List[str]:
     cloudlog.exception("listdir_by_creation failed")
     return list()
 
-def clear_locks(root: str) -> None:
+def clear_locks(root):
   for logname in os.listdir(root):
     path = os.path.join(root, logname)
     try:
@@ -68,14 +53,16 @@ def clear_locks(root: str) -> None:
       cloudlog.exception("clear_locks failed")
 
 
-class Uploader:
-  def __init__(self, dongle_id: str, root: str):
+class Uploader():
+  def __init__(self, dongle_id, root):
     self.dongle_id = dongle_id
     self.api = Api(dongle_id)
     self.root = root
 
-    self.last_resp: Optional[UploadResponse] = None
-    self.last_exc: Optional[Tuple[Exception, str]] = None
+    self.upload_thread = None
+
+    self.last_resp = None
+    self.last_exc = None
 
     self.immediate_size = 0
     self.immediate_count = 0
@@ -86,14 +73,20 @@ class Uploader:
     self.last_filename = ""
 
     self.immediate_folders = ["crash/", "boot/"]
-    self.immediate_priority = {"qlog": 0, "qlog.bz2": 0, "qcamera.ts": 1}
+    self.immediate_priority = {"qlog": 0, "qcamera.ts": 1}
+    self.high_priority = {"rlog": 0}
+    self.normal_priority = {"fcamera.hevc": 1, "dcamera.hevc": 2, "ecamera.hevc": 3}
 
-  def get_upload_sort(self, name: str) -> int:
+  def get_upload_sort(self, name):
     if name in self.immediate_priority:
       return self.immediate_priority[name]
+    if name in self.high_priority:
+      return self.high_priority[name] + 100
+    if name in self.normal_priority:
+      return self.normal_priority[name] + 300
     return 1000
 
-  def list_upload_files(self) -> Iterator[Tuple[str, str, str]]:
+  def list_upload_files(self):
     if not os.path.isdir(self.root):
       return
 
@@ -115,7 +108,7 @@ class Uploader:
         fn = os.path.join(path, name)
         # skip files already uploaded
         try:
-          is_uploaded = getxattr(fn, UPLOAD_ATTR_NAME) == UPLOAD_ATTR_VALUE
+          is_uploaded = getxattr(fn, UPLOAD_ATTR_NAME)
         except OSError:
           cloudlog.event("uploader_getxattr_failed", exc=self.last_exc, key=key, fn=fn)
           is_uploaded = True  # deleter could have deleted
@@ -129,51 +122,52 @@ class Uploader:
         except OSError:
           pass
 
-        yield name, key, fn
+        yield (name, key, fn)
 
-  def next_file_to_upload(self) -> Optional[Tuple[str, str, str]]:
+  def next_file_to_upload(self, with_raw):
     upload_files = list(self.list_upload_files())
 
     for name, key, fn in upload_files:
       if any(f in fn for f in self.immediate_folders):
-        return name, key, fn
+        return (key, fn)
 
     for name, key, fn in upload_files:
       if name in self.immediate_priority:
-        return name, key, fn
+        return (key, fn)
+
+    if with_raw:
+      # then upload the full log files, rear and front camera files
+      for name, key, fn in upload_files:
+        if name in self.high_priority:
+          return (key, fn)
+
+      # Could add a param here to disable full video uploads
+      for name, key, fn in upload_files:
+        if name in self.normal_priority:
+          return (key, fn)
 
     return None
 
-  def do_upload(self, key: str, fn: str) -> None:
+  def do_upload(self, key, fn):
+    class FakeResponse():
+          def __init__(self, status_code=200):
+            self.status_code = status_code
+
     try:
-      url_resp = self.api.get("v1.4/" + self.dongle_id + "/upload_url/", timeout=10, path=key, access_token=self.api.get_token())
-      if url_resp.status_code == 412:
-        self.last_resp = url_resp
-        return
+      args = ["/usr/bin/rsync", "--append", "--relative", "-e", "ssh -oStrictHostKeyChecking=no -p 2222 -i /data/id_rsa", "-azvhP", fn, f"khoi@{NAS_IP}:/volumeUSB1/usbshare/comma"]
+      check_output(args, stderr=STDOUT, timeout=300, shell=False)
+      try:
+        check_output(["killall rsync"], stderr=STDOUT) # ensure rsync is no longer running
+      except Exception:
+        pass
 
-      url_resp_json = json.loads(url_resp.text)
-      url = url_resp_json['url']
-      headers = url_resp_json['headers']
-      cloudlog.debug("upload_url v1.4 %s %s", url, str(headers))
-
-      if fake_upload:
-        cloudlog.debug(f"*** WARNING, THIS IS A FAKE UPLOAD TO {url} ***")
-        self.last_resp = FakeResponse()
-      else:
-        with open(fn, "rb") as f:
-          data: BinaryIO
-          if key.endswith('.bz2') and not fn.endswith('.bz2'):
-            compressed = bz2.compress(f.read())
-            data = io.BytesIO(compressed)
-          else:
-            data = f
-
-          self.last_resp = requests.put(url, data=data, headers=headers, timeout=10)
+      self.last_resp = FakeResponse()
     except Exception as e:
       self.last_exc = (e, traceback.format_exc())
+      print(f"Upload Exception {self.last_exc}")
       raise
 
-  def normal_upload(self, key: str, fn: str) -> Optional[UploadResponse]:
+  def normal_upload(self, key, fn):
     self.last_resp = None
     self.last_exc = None
 
@@ -184,45 +178,42 @@ class Uploader:
 
     return self.last_resp
 
-  def upload(self, name: str, key: str, fn: str, network_type: int, metered: bool) -> bool:
+  def get_now_str(self):
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+  def upload(self, key, fn, network_type, metered):
     try:
       sz = os.path.getsize(fn)
     except OSError:
       cloudlog.exception("upload: getsize failed")
       return False
 
-    cloudlog.event("upload_start", key=key, fn=fn, sz=sz, network_type=network_type, metered=metered)
+    print(f"{self.get_now_str()} upload_start {fn}")
 
     if sz == 0:
-      # tag files of 0 size as uploaded
-      success = True
-    elif name in self.immediate_priority and sz > UPLOAD_QLOG_QCAM_MAX_SIZE:
-      cloudlog.event("uploader_too_large", key=key, fn=fn, sz=sz)
+      try:
+        # tag files of 0 size as uploaded
+        setxattr(fn, UPLOAD_ATTR_NAME, UPLOAD_ATTR_VALUE)
+      except OSError:
+        print(f"uploader_setxattr_failed 1 {fn}")
       success = True
     else:
       start_time = time.monotonic()
       stat = self.normal_upload(key, fn)
       if stat is not None and stat.status_code in (200, 201, 401, 403, 412):
+        try:
+          # tag file as uploaded
+          setxattr(fn, UPLOAD_ATTR_NAME, UPLOAD_ATTR_VALUE)
+        except OSError:
+          print(f"uploader_setxattr_failed 2 {fn}")
         self.last_filename = fn
         self.last_time = time.monotonic() - start_time
-        if stat.status_code == 412:
-          self.last_speed = 0
-          cloudlog.event("upload_ignored", key=key, fn=fn, sz=sz, network_type=network_type, metered=metered)
-        else:
-          content_length = int(stat.request.headers.get("Content-Length", 0))
-          self.last_speed = (content_length / 1e6) / self.last_time
-          cloudlog.event("upload_success", key=key, fn=fn, sz=sz, content_length=content_length, network_type=network_type, metered=metered, speed=self.last_speed)
+        self.last_speed = (sz / 1e6) / self.last_time
         success = True
+        print(f"{self.get_now_str()} upload_success {fn}" if stat.status_code != 412 else f"upload_ignored {fn}")
       else:
         success = False
-        cloudlog.event("upload_failed", stat=stat, exc=self.last_exc, key=key, fn=fn, sz=sz, network_type=network_type, metered=metered)
-
-    if success:
-      # tag file as uploaded
-      try:
-        setxattr(fn, UPLOAD_ATTR_NAME, UPLOAD_ATTR_VALUE)
-      except OSError:
-        cloudlog.event("uploader_setxattr_failed", exc=self.last_exc, key=key, fn=fn, sz=sz)
+        print(f"{self.get_now_str()} upload_failed {fn}")
 
     return success
 
@@ -237,7 +228,7 @@ class Uploader:
     return msg
 
 
-def uploader_fn(exit_event: threading.Event) -> None:
+def uploader_fn(exit_event):
   try:
     set_core_affinity([0, 1, 2, 3])
   except Exception:
@@ -269,19 +260,16 @@ def uploader_fn(exit_event: threading.Event) -> None:
         time.sleep(60 if offroad else 5)
       continue
 
-    d = uploader.next_file_to_upload()
+    allow_raw_upload = True
+    d = uploader.next_file_to_upload(with_raw=allow_raw_upload)
     if d is None:  # Nothing to upload
       if allow_sleep:
         time.sleep(60 if offroad else 5)
       continue
 
-    name, key, fn = d
+    key, fn = d
 
-    # qlogs and bootlogs need to be compressed before uploading
-    if key.endswith(('qlog', 'rlog')) or (key.startswith('boot/') and not key.endswith('.bz2')):
-      key += ".bz2"
-
-    success = uploader.upload(name, key, fn, sm['deviceState'].networkType.raw, sm['deviceState'].networkMetered)
+    success = uploader.upload(key, fn, sm['deviceState'].networkType.raw, sm['deviceState'].networkMetered)
     if success:
       backoff = 0.1
     elif allow_sleep:
@@ -292,7 +280,7 @@ def uploader_fn(exit_event: threading.Event) -> None:
     pm.send("uploaderState", uploader.get_msg())
 
 
-def main() -> None:
+def main():
   uploader_fn(threading.Event())
 
 
